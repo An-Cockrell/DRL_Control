@@ -18,8 +18,11 @@ import gym
 
 MAX_OXYDEF = 8160
 NUM_CYTOKINES = 11
-NUM_OBSERVTAIONS = 5
+NUM_OBSERVTAIONS = 1
 OBS_VEC_SHAPE = NUM_CYTOKINES*(NUM_OBSERVTAIONS+1)
+
+all_signals_max = np.array([9048.283, 8969.218, 56.453243, 24.432032, 203.75848, 194.54462, 59.198627, 93.91482, 986.0, 465., 133., 227., 176., 432.44122, 425.84256, 79.20918, 220.06897, 217.0821, 11.526534, 43.950306])
+
 
 SIM = wrapper_setup.setUpWrapper()
 
@@ -44,7 +47,7 @@ class Iirabm_Environment(gym.Env):
         super(Iirabm_Environment, self).__init__()
 
         self.ptrToEnv = None
-        self.reward_range = (0,-MAX_OXYDEF)
+        self.reward_range = (-1,1000)
         self.cytokine_history = np.zeros((11,10000))
         self.cytokine_mults = np.zeros((11,1))
         self.oxydef_history = np.zeros((1,10000))
@@ -57,9 +60,13 @@ class Iirabm_Environment(gym.Env):
             shape=(NUM_CYTOKINES,),
             dtype=np.float32)
 
+        obs_space_high = np.array([10,10,10,10,10,10,10,10,10,10,10])
+        for i in range(NUM_OBSERVTAIONS):
+            obs_space_high = np.hstack((obs_space_high,all_signals_max[[2,3,4,5,12,13,14,15,16,17,18]]))
+
         self.observation_space = gym.spaces.Box(
             low=0,
-            high=8160,
+            high=obs_space_high,
             shape=(OBS_VEC_SHAPE,),
             dtype=np.float32)
         # Define action and observation space
@@ -76,7 +83,11 @@ class Iirabm_Environment(gym.Env):
         self.cytokine_history = SIM.getAllSignalsReturn(self.ptrToEnv)[[2,3,4,5,12,13,14,15,16,17,18],:]
         self.oxydef_history = SIM.getAllSignalsReturn(self.ptrToEnv)[0,:]
         self.current_step = SIM.getSimulationStep(self.ptrToEnv)
-        print(self.current_step, np.round(SIM.getOxydef(self.ptrToEnv),0), np.round(action,2),end="             \r")
+        np.set_printoptions(precision=2, suppress=True)
+
+        output = "step: {:4.0f}, Oxygen Deficit: {:5.0f}, Mults: {:5.2f}, {:5.2f}, {:5.2f}, {:5.2f}, {:5.2f}, {:5.2f}, {:5.2f}, {:5.2f}, {:5.2f}, {:5.2f}, {:5.2f}".format(self.current_step, SIM.getOxydef(self.ptrToEnv), action[0],action[1],action[2],action[3],action[4],action[5],action[6],action[7],action[8],action[9],action[10])
+        print(output, end="\r")
+        # print("step: " + str(self.current_step) + ", Oxygen Deficit: " + str(np.round(SIM.getOxydef(self.ptrToEnv),0)) + ", Mults: " + str(np.round(action,2)),end="             \r")
         reward = self.calculate_reward()
         done = self.calculate_done()
         obs = self._next_observation()
@@ -106,10 +117,38 @@ class Iirabm_Environment(gym.Env):
         return observation
 
     def calculate_done(self):
-        return bool(self.oxydef_history[self.current_step] < 10)
+        DONE = False
+        if self.oxydef_history[self.current_step] < 10:
+            DONE = True
+        if self.oxydef_history[self.current_step] > MAX_OXYDEF:
+            DONE = True
+
+        return bool(DONE)
 
     def calculate_reward(self):
-        return float(-1 * self.oxydef_history[self.current_step])
+        return_reward = 0
+        # return_reward = return_reward - self.oxydef_history[self.current_step]
+        # return_reward = return_reward / self.current_step
+        # # return_reward += self.current_step
+        if self.oxydef_history[self.current_step] > 4000:
+            return_reward = -1
+        # if self.oxydef_history[self.current_step] > 4500:
+        #     return_reward = -5
+        # if self.oxydef_history[self.current_step] > 6000:
+        #     return_reward = -10
+        # if self.oxydef_history[self.current_step] > 7500:
+        #     return_reward = -100
+        if self.oxydef_history[self.current_step] < 2750:
+            return_reward = 5
+        if self.oxydef_history[self.current_step] < 2500:
+            return_reward = 7
+        if self.oxydef_history[self.current_step] < 2250:
+            return_reward = 10
+        if self.oxydef_history[self.current_step] < 2000:
+            return_reward = 100
+        if self.oxydef_history[self.current_step] < 100:
+            return_reward = 1000
+        return float(return_reward)
 
     def reset(self):
     # Reset the state of the environment to an initial state

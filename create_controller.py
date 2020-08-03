@@ -22,7 +22,7 @@ from stable_baselines.common.env_checker import check_env
 
 env = Iirabm_Environment()
 
-print(check_env(env))
+# print(check_env(env))
 
 tf.reset_default_graph()
 
@@ -31,29 +31,43 @@ state_placeholder = tf.placeholder(tf.float32, [None, input_dims])
 
 
 def value_function(state):
-    n_hidden1 = 400
-    n_hidden2 = 400
+    n_hidden1 = 1331
+    n_hidden2 = 1331
     n_outputs = 1
 
     with tf.variable_scope("value_network"):
         init_xavier = tf.contrib.layers.xavier_initializer()
 
-        hidden1 = tf.layers.dense(state, n_hidden1, tf.nn.elu, init_xavier)
-        hidden2 = tf.layers.dense(hidden1, n_hidden2, tf.nn.elu, init_xavier)
+        hidden1 = tf.layers.dense(state, n_hidden1, None, init_xavier)
+        hidden2 = tf.layers.dense(hidden1, n_hidden2, None, init_xavier)
         V = tf.layers.dense(hidden2, n_outputs, None, init_xavier)
     return V
 
 
 def policy_network(state):
-    n_hidden1 = 40
-    n_hidden2 = 40
+    n_hidden1 = 121
+    n_hidden2 = 121
     n_outputs = 11
 
     with tf.variable_scope("policy_network"):
         init_xavier = tf.contrib.layers.xavier_initializer()
 
-        hidden1 = tf.layers.dense(state, n_hidden1, tf.nn.elu, init_xavier)
-        hidden2 = tf.layers.dense(hidden1, n_hidden2, tf.nn.elu, init_xavier)
+        meta_learn0 = tf.layers.dense(state, n_hidden1, None, init_xavier)
+        meta_learn1 = tf.layers.dense(state, n_hidden1, None, init_xavier)
+        meta_learn2 = tf.layers.dense(state, n_hidden1, None, init_xavier)
+        meta_learn3 = tf.layers.dense(state, n_hidden1, None, init_xavier)
+        meta_learn4 = tf.layers.dense(state, n_hidden1, None, init_xavier)
+        meta_learn5 = tf.layers.dense(state, n_hidden1, None, init_xavier)
+        meta_learn6 = tf.layers.dense(state, n_hidden1, None, init_xavier)
+        meta_learn7 = tf.layers.dense(state, n_hidden1, None, init_xavier)
+        meta_learn8 = tf.layers.dense(state, n_hidden1, None, init_xavier)
+        meta_learn9 = tf.layers.dense(state, n_hidden1, None, init_xavier)
+        meta_learn10 = tf.layers.dense(state, n_hidden1, None, init_xavier)
+
+        meta_learner_layer = tf.concat([meta_learn0, meta_learn1, meta_learn3, meta_learn4, meta_learn5,
+                                meta_learn6, meta_learn7, meta_learn8, meta_learn9, meta_learn10], 1)
+
+        hidden2 = tf.layers.dense(meta_learner_layer, n_hidden2, None, init_xavier)
         mu = tf.layers.dense(hidden2, n_outputs, None, init_xavier)
         sigma = tf.layers.dense(hidden2, n_outputs, None, init_xavier)
         sigma = tf.nn.softplus(sigma) + 1e-5
@@ -157,10 +171,10 @@ with tf.Session() as sess:
             state = next_state
             #end while
         episode_history.append(reward_total)
-        print("Episode: {}, Number of Steps : {}, Cumulative reward: {:0.2f}".format(
+        print("Episode: {}, Number of Steps : {}, Cumulative reward: {:10.2f}                                                       ".format(
             episode, steps, reward_total))
 
-        if np.mean(episode_history[-100:]) > 90 and len(episode_history) >= 101:
+        if np.mean(episode_history[-100:]) > 10000 and len(episode_history) >= 101:
             print("****************Solved***************")
             print("Mean cumulative reward over 100 episodes:{:0.2f}" .format(
                 np.mean(episode_history[-100:])))
