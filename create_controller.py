@@ -39,8 +39,8 @@ inputs = layers.Input(shape=num_inputs)
 common = layers.Dense(num_hidden)(inputs)
 # common = layers.Dense(num_hidden)(common)
 # common = layers.Dense(num_hidden)(common)
-action = layers.Dense(num_actions, activation=mapping_to_target_range)(common3)
-critic = layers.Dense(1)(common3)
+action = layers.Dense(num_actions, activation=mapping_to_target_range)(common)
+critic = layers.Dense(1)(common)
 
 model = keras.Model(inputs=inputs, outputs=[action, critic])
 
