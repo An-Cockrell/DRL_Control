@@ -50,7 +50,7 @@ class Iirabm_Environment(gym.Env):
         self.cytokine_mults = np.zeros((11,1))
         self.oxydef_history = np.zeros((1,10000))
         self.current_step = 0
-
+        self.render = False
         # Actions of the format Buy x%, Sell x%, Hold, etc.
         self.action_space = gym.spaces.Box(
             low=0.01,
@@ -84,7 +84,8 @@ class Iirabm_Environment(gym.Env):
         np.set_printoptions(precision=2, suppress=True)
 
         output = "step: {:4.0f}, Oxygen Deficit: {:5.0f}, Mults: {:5.2f}, {:5.2f}, {:5.2f}, {:5.2f}, {:5.2f}, {:5.2f}, {:5.2f}, {:5.2f}, {:5.2f}, {:5.2f}, {:5.2f}".format(self.current_step, SIM.getOxydef(self.ptrToEnv), action[0],action[1],action[2],action[3],action[4],action[5],action[6],action[7],action[8],action[9],action[10])
-        print(output, end="\r")
+        if self.render:
+            print(output, end="\r")
         # print("step: " + str(self.current_step) + ", Oxygen Deficit: " + str(np.round(SIM.getOxydef(self.ptrToEnv),0)) + ", Mults: " + str(np.round(action,2)),end="             \r")
         reward = self.calculate_reward()
         done = self.calculate_done()
