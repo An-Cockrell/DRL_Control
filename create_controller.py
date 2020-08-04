@@ -3,178 +3,140 @@
 # Questions to daleblarie@gmail.com
 
 # following basic outline from:
-# https://medium.com/@asteinbach/actor-critic-using-deep-rl-continuous-mountain-car-in-tensorflow-4c1fb2110f7c
-# https://github.com/andy-psai/MountainCar_ActorCritic/blob/master/RL%20Blog%20FINAL%20MEDIUM%20code%2002_12_19.ipynb
-
-import numpy as np
-import tensorflow as tf
+# https://keras.io/examples/rl/actor_critic_cartpole/
 
 import ctypes
 from numpy.ctypeslib import ndpointer
-import wrapper_setup
-import keras
 from iirabm_env import Iirabm_Environment
 import gym
-import tensorflow.python.util.deprecation as deprecation
-deprecation._PRINT_DEPRECATION_WARNINGS = False #suppress depreciation warnings
+import numpy as np
+import tensorflow as tf
+from tensorflow import keras
+from tensorflow.keras import layers
+from keras import backend as K
 
-from stable_baselines.common.env_checker import check_env
 
 env = Iirabm_Environment()
 
-# print(check_env(env))
 
-tf.reset_default_graph()
+# Configuration parameters for the whole setup
+gamma = 0.99  # Discount factor for past rewards
+max_steps_per_episode = 10000
+eps = np.finfo(np.float32).eps.item()  # Smallest number such that 1.0 + eps != 1.0
 
-input_dims = env.observation_space.shape[0]
-state_placeholder = tf.placeholder(tf.float32, [None, input_dims])
+num_inputs = env.observation_space.shape
+num_actions = env.action_space.shape[0]
+num_hidden = 121
 
-
-def value_function(state):
-    n_hidden1 = 1331
-    n_hidden2 = 1331
-    n_outputs = 1
-
-    with tf.variable_scope("value_network"):
-        init_xavier = tf.contrib.layers.xavier_initializer()
-
-        hidden1 = tf.layers.dense(state, n_hidden1, None, init_xavier)
-        hidden2 = tf.layers.dense(hidden1, n_hidden2, None, init_xavier)
-        V = tf.layers.dense(hidden2, n_outputs, None, init_xavier)
-    return V
+# https://stackoverflow.com/questions/49911206/how-to-restrict-output-of-a-neural-net-to-a-specific-range
+def mapping_to_target_range( x, target_min=.01, target_max=10 ) :
+    x02 = K.tanh(x) + 1 # x in range(0,2)
+    scale = ( target_max-target_min )/2.
+    return  x02 * scale + target_min
 
 
-def policy_network(state):
-    n_hidden1 = 121
-    n_hidden2 = 121
-    n_outputs = 11
+inputs = layers.Input(shape=num_inputs)
+common1 = layers.Dense(num_hidden)(inputs)
+common2 = layers.Dense(num_hidden)(common1)
+common3 = layers.Dense(num_hidden)(common2)
+action = layers.Dense(num_actions, activation=mapping_to_target_range)(common3)
+critic = layers.Dense(1)(common3)
 
-    with tf.variable_scope("policy_network"):
-        init_xavier = tf.contrib.layers.xavier_initializer()
-
-        meta_learn0 = tf.layers.dense(state, n_hidden1, None, init_xavier)
-        meta_learn1 = tf.layers.dense(state, n_hidden1, None, init_xavier)
-        meta_learn2 = tf.layers.dense(state, n_hidden1, None, init_xavier)
-        meta_learn3 = tf.layers.dense(state, n_hidden1, None, init_xavier)
-        meta_learn4 = tf.layers.dense(state, n_hidden1, None, init_xavier)
-        meta_learn5 = tf.layers.dense(state, n_hidden1, None, init_xavier)
-        meta_learn6 = tf.layers.dense(state, n_hidden1, None, init_xavier)
-        meta_learn7 = tf.layers.dense(state, n_hidden1, None, init_xavier)
-        meta_learn8 = tf.layers.dense(state, n_hidden1, None, init_xavier)
-        meta_learn9 = tf.layers.dense(state, n_hidden1, None, init_xavier)
-        meta_learn10 = tf.layers.dense(state, n_hidden1, None, init_xavier)
-
-        meta_learner_layer = tf.concat([meta_learn0, meta_learn1, meta_learn3, meta_learn4, meta_learn5,
-                                meta_learn6, meta_learn7, meta_learn8, meta_learn9, meta_learn10], 1)
-
-        hidden2 = tf.layers.dense(meta_learner_layer, n_hidden2, None, init_xavier)
-        mu = tf.layers.dense(hidden2, n_outputs, None, init_xavier)
-        sigma = tf.layers.dense(hidden2, n_outputs, None, init_xavier)
-        sigma = tf.nn.softplus(sigma) + 1e-5
-        norm_dist = tf.contrib.distributions.Normal(mu, sigma)
-        action_tf_var = tf.squeeze(norm_dist.sample(1), axis=0)
-        action_tf_var = tf.clip_by_value(
-            action_tf_var, env.action_space.low,
-            env.action_space.high)
-    return action_tf_var, norm_dist
+model = keras.Model(inputs=inputs, outputs=[action, critic])
 
 
+optimizer = keras.optimizers.Adam(learning_rate=0.01)
+huber_loss = keras.losses.Huber()
+actions_history = []
+critic_value_history = []
+rewards_history = []
+running_reward = 0
+episode_count = 0
 
-################################################################
-#sample from state space for state normalization
-import sklearn
-import sklearn.preprocessing
+# run until solved
+while True:
+    state = env.reset()
+    episode_reward = 0
+    with tf.GradientTape() as tape:
+        for timestep in range(1, max_steps_per_episode):
+            # env.render(); Adding this line would show the attempts
+            # of the agent in a pop up window.
 
-state_space_samples = np.array(
-    [env.observation_space.sample() for x in range(10000)])
-scaler = sklearn.preprocessing.StandardScaler()
-scaler.fit(state_space_samples)
+            state = tf.convert_to_tensor(state)
+            state = tf.expand_dims(state, 0)
 
-#function to normalize states
-def scale_state(state):                 #requires input shape=(2,)
-    scaled = scaler.transform([state])
-    return scaled                       #returns shape =(1,2)
-###################################################################
+            # Predict action probabilities and estimated future rewards
+            # from environment state
+            actions, critic_value = model(state)
+            critic_value_history.append(critic_value[0, 0])
+            # print(actions)
+            actions_history.append(actions)
+            # Sample action from action probability distribution
+            # action = np.random.choice(num_actions, p=np.squeeze(action_probs))
+            # action_probs_history.append(tf.math.log(action_probs[0, action]))
 
-lr_actor = 0.00002  #set learning rates
-lr_critic = 0.001
+            # Apply the sampled action in our environment
+            # print(actions[0,:])
+            state, reward, done, _ = env.step(actions[0,:])
+            rewards_history.append(reward)
+            episode_reward += reward
 
-# define required placeholders
-action_placeholder = tf.placeholder(tf.float32)
-delta_placeholder = tf.placeholder(tf.float32)
-target_placeholder = tf.placeholder(tf.float32)
+            if done:
+                break
 
-action_tf_var, norm_dist = policy_network(state_placeholder)
-V = value_function(state_placeholder)
+        # Update running reward to check condition for solving
+        running_reward = 0.05 * episode_reward + (1 - 0.05) * running_reward
 
-# define actor (policy) loss function
-loss_actor = -tf.log(norm_dist.prob(action_placeholder) + 1e-5) * delta_placeholder
-training_op_actor = tf.train.AdamOptimizer(
-    lr_actor, name='actor_optimizer').minimize(loss_actor)
+        # Calculate expected value from rewards
+        # - At each timestep what was the total reward received after that timestep
+        # - Rewards in the past are discounted by multiplying them with gamma
+        # - These are the labels for our critic
+        returns = []
+        discounted_sum = 0
+        for r in rewards_history[::-1]:
+            discounted_sum = r + gamma * discounted_sum
+            returns.insert(0, discounted_sum)
 
-# define critic (state-value) loss function
-loss_critic = tf.reduce_mean(tf.squared_difference(
-                             tf.squeeze(V), target_placeholder))
-training_op_critic = tf.train.AdamOptimizer(
-        lr_critic, name='critic_optimizer').minimize(loss_critic)
-################################################################
-#Training loop
-gamma = 0.99        #discount factor
-num_episodes = 300
+        # Normalize
+        returns = np.array(returns)
+        returns = (returns - np.mean(returns)) / (np.std(returns) + eps)
+        returns = returns.tolist()
 
-with tf.Session() as sess:
-    sess.run(tf.global_variables_initializer())
-    episode_history = []
-    for episode in range(num_episodes):
-        #receive initial state from E
-        state = env.reset()   # state.shape -> (2,)
-        reward_total = 0
-        steps = 0
-        done = False
-        while (not done):
+        # Calculating loss values to update our network
+        history = zip(actions_history, critic_value_history, returns)
+        actor_losses = []
+        critic_losses = []
+        for log_prob, value, ret in history:
+            # At this point in history, the critic estimated that we would get a
+            # total reward = `value` in the future. We took an action with log probability
+            # of `log_prob` and ended up recieving a total reward = `ret`.
+            # The actor must be updated so that it predicts an action that leads to
+            # high rewards (compared to critic's estimate) with high probability.
+            diff = ret - value
+            actor_losses.append(-log_prob * diff)  # actor loss
 
-            #Sample action according to current policy
-            #action.shape = (1,1)
-            action  = sess.run(action_tf_var, feed_dict={
-                          state_placeholder: scale_state(state)})
-            #Execute action and observe reward & next state from E
-            # next_state shape=(2,)
-            #env.step() requires input shape = (1,)
-            next_state, reward, done, _ = env.step(
-                                    np.squeeze(action, axis=0))
-            steps +=1
-            reward_total += reward
-            #V_of_next_state.shape=(1,1)
-            V_of_next_state = sess.run(V, feed_dict =
-                    {state_placeholder: scale_state(next_state)})
-            #Set TD Target
-            #target = r + gamma * V(next_state)
-            target = reward + gamma * np.squeeze(V_of_next_state)
+            # The critic must be updated so that it predicts a better estimate of
+            # the future rewards.
+            critic_losses.append(
+                huber_loss(tf.expand_dims(value, 0), tf.expand_dims(ret, 0))
+            )
 
-            # td_error = target - V(s)
-            #needed to feed delta_placeholder in actor training
-            td_error = target - np.squeeze(sess.run(V, feed_dict =
-                        {state_placeholder: scale_state(state)}))
+        # Backpropagation
+        loss_value = sum(actor_losses) + sum(critic_losses)
+        grads = tape.gradient(loss_value, model.trainable_variables)
+        optimizer.apply_gradients(zip(grads, model.trainable_variables))
 
-            #Update actor by minimizing loss (Actor training)
-            _, loss_actor_val  = sess.run(
-                [training_op_actor, loss_actor],
-                feed_dict={action_placeholder: np.squeeze(action),
-                state_placeholder: scale_state(state),
-                delta_placeholder: td_error})
-            #Update critic by minimizinf loss  (Critic training)
-            _, loss_critic_val  = sess.run(
-                [training_op_critic, loss_critic],
-                feed_dict={state_placeholder: scale_state(state),
-                target_placeholder: target})
+        # Clear the loss and reward history
+        actions_history.clear()
+        critic_value_history.clear()
+        rewards_history.clear()
 
-            state = next_state
-            #end while
-        episode_history.append(reward_total)
-        print("Episode: {}, Number of Steps : {}, Cumulative reward: {:10.2f}                                                       ".format(
-            episode, steps, reward_total))
+    # Log details
+    episode_count += 1
+    if episode_count % 1 == 0:
+        template = "running reward: {:.2f} at episode {}                                        "
+        print(template.format(running_reward, episode_count))
 
-        if np.mean(episode_history[-100:]) > 10000 and len(episode_history) >= 101:
-            print("****************Solved***************")
-            print("Mean cumulative reward over 100 episodes:{:0.2f}" .format(
-                np.mean(episode_history[-100:])))
+    if running_reward > 10000:  # Condition to consider the task solved
+        print("Solved at episode {}!".format(episode_count))
+        break

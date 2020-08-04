@@ -10,8 +10,6 @@ import ctypes
 import numpy as np
 from numpy.ctypeslib import ndpointer
 import wrapper_setup
-import tensorflow.python.util.deprecation as deprecation
-deprecation._PRINT_DEPRECATION_WARNINGS = False #suppress depreciation warnings
 
 import gym
 
