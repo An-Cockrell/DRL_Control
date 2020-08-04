@@ -26,7 +26,7 @@ eps = np.finfo(np.float32).eps.item()  # Smallest number such that 1.0 + eps != 
 
 num_inputs = env.observation_space.shape
 num_actions = env.action_space.shape[0]
-num_hidden = 121
+num_hidden = 1331
 
 # https://stackoverflow.com/questions/49911206/how-to-restrict-output-of-a-neural-net-to-a-specific-range
 def mapping_to_target_range( x, target_min=.01, target_max=10 ) :
@@ -36,9 +36,9 @@ def mapping_to_target_range( x, target_min=.01, target_max=10 ) :
 
 
 inputs = layers.Input(shape=num_inputs)
-common1 = layers.Dense(num_hidden)(inputs)
-common2 = layers.Dense(num_hidden)(common1)
-common3 = layers.Dense(num_hidden)(common2)
+common = layers.Dense(num_hidden)(inputs)
+# common = layers.Dense(num_hidden)(common)
+# common = layers.Dense(num_hidden)(common)
 action = layers.Dense(num_actions, activation=mapping_to_target_range)(common3)
 critic = layers.Dense(1)(common3)
 
@@ -137,6 +137,6 @@ while True:
         template = "running reward: {:.2f} at episode {}                                        "
         print(template.format(running_reward, episode_count))
 
-    if running_reward > 10000:  # Condition to consider the task solved
+    if running_reward > 100000:  # Condition to consider the task solved
         print("Solved at episode {}!".format(episode_count))
         break
