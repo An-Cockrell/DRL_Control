@@ -57,7 +57,7 @@ def value_function():
 
 def policy_network():
     num_hidden1 = 121
-    num_hidden2 = 121
+    num_hidden2 = 1331
     num_outputs = np.squeeze(env.action_space.shape)
 
     init_xavier = tf.initializers.glorot_uniform()
@@ -79,7 +79,7 @@ def policy_network():
                                 meta_learn6, meta_learn7, meta_learn8, meta_learn9, meta_learn10])
 
     common = tf.keras.layers.Dense(num_hidden2, kernel_initializer=init_xavier)(meta_learner_layer)
-    norm = tf.keras.layers.Dense(tfp.layers.IndependentNormal.params_size(num_outputs),
+    norm = tf.keras.layers.Dense(tfp.layers.IndependentNormal.params_size(num_outputs),tf.nn.relu,
                               kernel_initializer=init_xavier)(common)
     output = tfp.layers.IndependentNormal(num_outputs)(norm)
 
@@ -125,7 +125,9 @@ for episode in range(num_episodes):
         # env.step() requires input shape = (1,)
         # print(action)
         if tf.math.is_nan(action[0,0]):
-            print(action)
+            print(state)
+            print("\n\n\n")
+            print(action_dist)
             break
         next_state, reward, done, _ = env.step(np.squeeze(action, axis=0))
         steps += 1
@@ -159,7 +161,7 @@ for episode in range(num_episodes):
         print(action)
         break
     episode_history.append(reward_total)
-    print("Episode: {}, Number of Steps : {}, Cumulative reward: {:0.2f}".format(
+    print("Episode: {}, Number of Steps : {}, Cumulative reward: {:0.2f}                                                            ".format(
         episode, steps, reward_total))
 
     if np.mean(episode_history[-100:]) > 90 and len(episode_history) >= 101:
