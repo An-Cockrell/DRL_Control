@@ -164,7 +164,7 @@ for episode in range(num_episodes):
     print("Episode: {}, Number of Steps : {}, Cumulative reward: {:0.2f}                                                            ".format(
         episode, steps, reward_total))
 
-    if np.mean(episode_history[-100:]) > 90 and len(episode_history) >= 101:
+    if np.mean(episode_history[-100:]) > 10000 and len(episode_history) >= 101:
         print("****************Solved***************")
         print("Mean cumulative reward over 100 episodes:{:0.2f}".format(
             np.mean(episode_history[-100:])))

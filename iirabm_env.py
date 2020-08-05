@@ -45,7 +45,7 @@ class Iirabm_Environment(gym.Env):
         super(Iirabm_Environment, self).__init__()
 
         self.ptrToEnv = None
-        self.reward_range = (-1,1000)
+        self.reward_range = (-5,10000)
         self.cytokine_history = np.zeros((11,10000))
         self.cytokine_mults = np.zeros((11,1))
         self.oxydef_history = np.zeros((1,10000))
@@ -126,12 +126,12 @@ class Iirabm_Environment(gym.Env):
         return bool(DONE)
 
     def calculate_reward(self):
-        return_reward = 0
+        return_reward = 1
         # return_reward = return_reward - self.oxydef_history[self.current_step]
         # return_reward = return_reward / self.current_step
         # # return_reward += self.current_step
-        if self.oxydef_history[self.current_step] > 4000:
-            return_reward = -1
+        if self.oxydef_history[self.current_step] > 6000:
+            return_reward = -5
         # if self.oxydef_history[self.current_step] > 4500:
         #     return_reward = -5
         # if self.oxydef_history[self.current_step] > 6000:
@@ -146,8 +146,8 @@ class Iirabm_Environment(gym.Env):
             return_reward = 10
         if self.oxydef_history[self.current_step] < 2000:
             return_reward = 100
-        if self.oxydef_history[self.current_step] < 100:
-            return_reward = 1000
+        if self.oxydef_history[self.current_step] < 50:
+            return_reward = 10000
         return float(return_reward)
 
     def reset(self):
