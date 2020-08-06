@@ -14,7 +14,12 @@ import wrapper_setup
 import gym
 
 import matplotlib.pyplot as plt
-from matplotlib.animation import FuncAnimation
+
+# PLOTTING VARS
+globalLine = None
+globalAx = None
+globalFig = None
+globalBG = None
 
 
 
@@ -42,6 +47,8 @@ def createIIRABM():
     return instance
 
 class Iirabm_Environment(gym.Env):
+    """Custom Environment that follows gym interface"""
+    metadata = {'render.modes': ['human']}
 
     def __init__(self, rendering=False):
         super(Iirabm_Environment, self).__init__()
@@ -72,15 +79,7 @@ class Iirabm_Environment(gym.Env):
             dtype=np.float32)
 
         if self.rendering:
-            self.fig = plt.figure(figsize=(10,6))
-            self.ax = self.fig.add_subplot(111)
-            self.ax.set_xlim([0,10000])
-            self.ax.set_ylim([0,8200])
-            self.fig.show()
-            self.plotx = []
-            self.ploty = []
-
-
+            self.fig, self.ax, self. line, self.bg = initialize_render()
         # Define action and observation space
         # They must be gym.spaces objects
         # Example when using discrete actions:
@@ -91,20 +90,22 @@ class Iirabm_Environment(gym.Env):
 
     def step(self, action):
     # Execute one time step within the environment
+
         self.take_action(action)
         self.cytokine_history = SIM.getAllSignalsReturn(self.ptrToEnv)[[2,3,4,5,12,13,14,15,16,17,18],:]
         self.oxydef_history = SIM.getAllSignalsReturn(self.ptrToEnv)[0,:]
         self.current_step = SIM.getSimulationStep(self.ptrToEnv)
         np.set_printoptions(precision=2, suppress=True)
 
+        output = "step: {:4.0f}, Oxygen Deficit: {:5.0f}, Mults: {:5.2f}, {:5.2f}, {:5.2f}, {:5.2f}, {:5.2f}, {:5.2f}, {:5.2f}, {:5.2f}, {:5.2f}, {:5.2f}, {:5.2f}".format(self.current_step, SIM.getOxydef(self.ptrToEnv), action[0],action[1],action[2],action[3],action[4],action[5],action[6],action[7],action[8],action[9],action[10])
+        if self.rendering:
+            self.render()
+            print(output, end="\r")
         # print("step: " + str(self.current_step) + ", Oxygen Deficit: " + str(np.round(SIM.getOxydef(self.ptrToEnv),0)) + ", Mults: " + str(np.round(action,2)),end="             \r")
         reward = self.calculate_reward()
         done = self.calculate_done()
         obs = self._next_observation()
-        if self.rendering:
-            self.render()
-            output = "step: {:4.0f}, Oxygen Deficit: {:5.0f}, Mults: {:5.2f}, {:5.2f}, {:5.2f}, {:5.2f}, {:5.2f}, {:5.2f}, {:5.2f}, {:5.2f}, {:5.2f}, {:5.2f}, {:5.2f}".format(self.current_step, SIM.getOxydef(self.ptrToEnv), action[0],action[1],action[2],action[3],action[4],action[5],action[6],action[7],action[8],action[9],action[10])
-            print(output, end="\r")
+
         return obs, reward, done, {}
 
     def take_action(self,action_vector):
@@ -178,20 +179,59 @@ class Iirabm_Environment(gym.Env):
 
         return self._next_observation()
 
-    def animate(self):
-        plt.plot(self.oxydef_history, c="b")
-        ani = FuncAnimation(self.fig, plt.plot(self.oxydef_history, c="b"), 1, blit=True)
+        # globalAx.set_xlim([-10,10000])
+        # globalAx.set_ylim([-10,8000])
+        # (globalLine,) = globalAx.plot(self.plotx, self.ploty, animated=True)
+        # plt.show(block=False)
+        # plt.pause(0.1)
+        # globalBG = globalFig.canvas.copy_from_bbox(globalFig.bbox)
+        # globalAx.draw_artist(globalLine)
+        # globalFig.canvas.blit(globalFig.bbox)
 
-        # print("animating")
-
+        # self.fig, self.ax = plt.subplots()
+        # self.ax.set_xlim([-10,10000])
+        # self.ax.set_ylim([-10,8000])
+        #
+        # (self.line,) = self.ax.plot(self.plotx, self.oxydef_history[0,:], animated=True)
+        # plt.show(block=False)
+        # plt.pause(0.1)
+        #
+        #
+        # self.bg = self.fig.canvas.copy_from_bbox(self.fig.bbox)
+        #
+        # self.ax.draw_artist(self.line)
+        #
+        # self.fig.canvas.blit(self.fig.bbox)
 
     def render(self, mode='human', close=False):
     # Render the environment to the screen
-        # print("Rendering")
-        # self.animate()
-        self.plotx = self.current_step
-        self.ploty = self.oxydef_history[self.current_step]
-        self.ax.scatter(self.plotx, self.ploty, c="b")
+
+        self.fig.canvas.restore_region(self.bg)
+        self.line.set_data(range(self.current_step), self.oxydef_history[:self.current_step])
+        self.ax.draw_artist(self.line)
+        self.fig.canvas.blit(self.fig.bbox)
+        self.fig.canvas.flush_events()
         self.fig.canvas.draw()
-        plt.pause(.001)
-        # plt.show()
+        # self.fig.canvas.restore_region(self.bg)
+        #
+        # self.line.set_data(self.current_step, self.oxydef_history[self.current_step])
+        #
+        # self.ax.draw_artist(self.line)
+        #
+        # self.fig.canvas.blit(self.fig.bbox)
+        #
+        # self.fig.canvas.flush_events()
+        plt.pause(.00000001)
+
+def initialize_render():
+    plotx = np.array(range(10000))
+    ploty = np.array(range(10000))
+    fig, ax = plt.subplots()
+    (ln,) = ax.plot(plotx, ploty, animated=True)
+    plt.show(block=False)
+    plt.pause(0.1)
+    bg = fig.canvas.copy_from_bbox(fig.bbox)
+    ax.draw_artist(ln)
+    fig.canvas.blit(fig.bbox)
+    plt.pause(.1)
+    return fig, ax, ln, bg
