@@ -22,8 +22,7 @@ import tensorflow_probability as tfp
 tfd = tfp.distributions
 
 
-env = Iirabm_Environment()
-env.render = True
+env = Iirabm_Environment(rendering=True)
 
 ################################################################
 #sample from state space for state normalization

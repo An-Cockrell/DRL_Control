@@ -13,6 +13,10 @@ import wrapper_setup
 
 import gym
 
+import matplotlib.pyplot as plt
+from matplotlib.animation import FuncAnimation
+
+
 
 MAX_OXYDEF = 8160
 NUM_CYTOKINES = 11
@@ -38,10 +42,8 @@ def createIIRABM():
     return instance
 
 class Iirabm_Environment(gym.Env):
-    """Custom Environment that follows gym interface"""
-    metadata = {'render.modes': ['human']}
 
-    def __init__(self):
+    def __init__(self, rendering=False):
         super(Iirabm_Environment, self).__init__()
 
         self.ptrToEnv = None
@@ -49,8 +51,9 @@ class Iirabm_Environment(gym.Env):
         self.cytokine_history = np.zeros((11,10000))
         self.cytokine_mults = np.zeros((11,1))
         self.oxydef_history = np.zeros((1,10000))
+        self.action_history = np.zeros((11,10000))
         self.current_step = 0
-        self.render = False
+        self.rendering = rendering
         # Actions of the format Buy x%, Sell x%, Hold, etc.
         self.action_space = gym.spaces.Box(
             low=0.01,
@@ -67,6 +70,17 @@ class Iirabm_Environment(gym.Env):
             high=obs_space_high,
             shape=(OBS_VEC_SHAPE,),
             dtype=np.float32)
+
+        if self.rendering:
+            self.fig = plt.figure(figsize=(10,6))
+            self.ax = self.fig.add_subplot(111)
+            self.ax.set_xlim([0,10000])
+            self.ax.set_ylim([0,8200])
+            self.fig.show()
+            self.plotx = []
+            self.ploty = []
+
+
         # Define action and observation space
         # They must be gym.spaces objects
         # Example when using discrete actions:
@@ -83,17 +97,19 @@ class Iirabm_Environment(gym.Env):
         self.current_step = SIM.getSimulationStep(self.ptrToEnv)
         np.set_printoptions(precision=2, suppress=True)
 
-        output = "step: {:4.0f}, Oxygen Deficit: {:5.0f}, Mults: {:5.2f}, {:5.2f}, {:5.2f}, {:5.2f}, {:5.2f}, {:5.2f}, {:5.2f}, {:5.2f}, {:5.2f}, {:5.2f}, {:5.2f}".format(self.current_step, SIM.getOxydef(self.ptrToEnv), action[0],action[1],action[2],action[3],action[4],action[5],action[6],action[7],action[8],action[9],action[10])
-        if self.render:
-            print(output, end="\r")
         # print("step: " + str(self.current_step) + ", Oxygen Deficit: " + str(np.round(SIM.getOxydef(self.ptrToEnv),0)) + ", Mults: " + str(np.round(action,2)),end="             \r")
         reward = self.calculate_reward()
         done = self.calculate_done()
         obs = self._next_observation()
-
+        if self.rendering:
+            self.render()
+            output = "step: {:4.0f}, Oxygen Deficit: {:5.0f}, Mults: {:5.2f}, {:5.2f}, {:5.2f}, {:5.2f}, {:5.2f}, {:5.2f}, {:5.2f}, {:5.2f}, {:5.2f}, {:5.2f}, {:5.2f}".format(self.current_step, SIM.getOxydef(self.ptrToEnv), action[0],action[1],action[2],action[3],action[4],action[5],action[6],action[7],action[8],action[9],action[10])
+            print(output, end="\r")
         return obs, reward, done, {}
 
     def take_action(self,action_vector):
+        self.action_history[:,self.current_step] = action_vector
+
         SIM.setTNFmult(self.ptrToEnv, action_vector[0])
         SIM.setsTNFrmult(self.ptrToEnv, action_vector[1])
         SIM.setIL10mult(self.ptrToEnv, action_vector[2])
@@ -126,28 +142,29 @@ class Iirabm_Environment(gym.Env):
         return bool(DONE)
 
     def calculate_reward(self):
-        return_reward = 1
-        # return_reward = return_reward - self.oxydef_history[self.current_step]
-        # return_reward = return_reward / self.current_step
-        # # return_reward += self.current_step
-        if self.oxydef_history[self.current_step] > 6000:
-            return_reward = -5
-        # if self.oxydef_history[self.current_step] > 4500:
-        #     return_reward = -5
-        # if self.oxydef_history[self.current_step] > 6000:
-        #     return_reward = -10
-        # if self.oxydef_history[self.current_step] > 7500:
-        #     return_reward = -100
-        if self.oxydef_history[self.current_step] < 2750:
-            return_reward = 5
-        if self.oxydef_history[self.current_step] < 2500:
-            return_reward = 7
-        if self.oxydef_history[self.current_step] < 2250:
-            return_reward = 10
-        if self.oxydef_history[self.current_step] < 2000:
-            return_reward = 100
-        if self.oxydef_history[self.current_step] < 50:
-            return_reward = 10000
+        return_reward = 0
+        if self.current_step % 100 == 0:
+            # return_reward = return_reward - self.oxydef_history[self.current_step]
+            # return_reward = return_reward / self.current_step
+            # # return_reward += self.current_step
+            if self.oxydef_history[self.current_step] > 6000:
+                return_reward = -5
+            # if self.oxydef_history[self.current_step] > 4500:
+            #     return_reward = -5
+            # if self.oxydef_history[self.current_step] > 6000:
+            #     return_reward = -10
+            # if self.oxydef_history[self.current_step] > 7500:
+            #     return_reward = -100
+            if self.oxydef_history[self.current_step] < 2750:
+                return_reward = 5
+            if self.oxydef_history[self.current_step] < 2500:
+                return_reward = 7
+            if self.oxydef_history[self.current_step] < 2250:
+                return_reward = 10
+            if self.oxydef_history[self.current_step] < 2000:
+                return_reward = 100
+            if self.oxydef_history[self.current_step] < 50:
+                return_reward = 10000
         return float(return_reward)
 
     def reset(self):
@@ -161,6 +178,20 @@ class Iirabm_Environment(gym.Env):
 
         return self._next_observation()
 
+    def animate(self):
+        plt.plot(self.oxydef_history, c="b")
+        ani = FuncAnimation(self.fig, plt.plot(self.oxydef_history, c="b"), 1, blit=True)
+
+        # print("animating")
+
+
     def render(self, mode='human', close=False):
     # Render the environment to the screen
-        pass
+        # print("Rendering")
+        # self.animate()
+        self.plotx = self.current_step
+        self.ploty = self.oxydef_history[self.current_step]
+        self.ax.scatter(self.plotx, self.ploty, c="b")
+        self.fig.canvas.draw()
+        plt.pause(.001)
+        # plt.show()
