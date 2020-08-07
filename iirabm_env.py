@@ -79,7 +79,8 @@ class Iirabm_Environment(gym.Env):
             dtype=np.float32)
 
         if self.rendering:
-            self.fig, self.ax, self. line, self.bg = initialize_render()
+            self.initialize_render()
+            # self.fig, self.ax, self. line, self.bg = initialize_render()
         # Define action and observation space
         # They must be gym.spaces objects
         # Example when using discrete actions:
@@ -179,59 +180,33 @@ class Iirabm_Environment(gym.Env):
 
         return self._next_observation()
 
-        # globalAx.set_xlim([-10,10000])
-        # globalAx.set_ylim([-10,8000])
-        # (globalLine,) = globalAx.plot(self.plotx, self.ploty, animated=True)
-        # plt.show(block=False)
-        # plt.pause(0.1)
-        # globalBG = globalFig.canvas.copy_from_bbox(globalFig.bbox)
-        # globalAx.draw_artist(globalLine)
-        # globalFig.canvas.blit(globalFig.bbox)
-
-        # self.fig, self.ax = plt.subplots()
-        # self.ax.set_xlim([-10,10000])
-        # self.ax.set_ylim([-10,8000])
-        #
-        # (self.line,) = self.ax.plot(self.plotx, self.oxydef_history[0,:], animated=True)
-        # plt.show(block=False)
-        # plt.pause(0.1)
-        #
-        #
-        # self.bg = self.fig.canvas.copy_from_bbox(self.fig.bbox)
-        #
-        # self.ax.draw_artist(self.line)
-        #
-        # self.fig.canvas.blit(self.fig.bbox)
-
     def render(self, mode='human', close=False):
     # Render the environment to the screen
-
         self.fig.canvas.restore_region(self.bg)
         self.line.set_data(range(self.current_step), self.oxydef_history[:self.current_step])
         self.ax.draw_artist(self.line)
         self.fig.canvas.blit(self.fig.bbox)
         self.fig.canvas.flush_events()
-        self.fig.canvas.draw()
-        # self.fig.canvas.restore_region(self.bg)
-        #
-        # self.line.set_data(self.current_step, self.oxydef_history[self.current_step])
-        #
-        # self.ax.draw_artist(self.line)
-        #
-        # self.fig.canvas.blit(self.fig.bbox)
-        #
-        # self.fig.canvas.flush_events()
         plt.pause(.00000001)
 
-def initialize_render():
-    plotx = np.array(range(10000))
-    ploty = np.array(range(10000))
-    fig, ax = plt.subplots()
-    (ln,) = ax.plot(plotx, ploty, animated=True)
-    plt.show(block=False)
-    plt.pause(0.1)
-    bg = fig.canvas.copy_from_bbox(fig.bbox)
-    ax.draw_artist(ln)
-    fig.canvas.blit(fig.bbox)
-    plt.pause(.1)
-    return fig, ax, ln, bg
+    def initialize_render(self):
+        plotx = np.array(range(10000))
+        print(plotx.shape)
+        ploty = np.zeros((10000-1))
+        ploty = np.append(ploty,MAX_OXYDEF)
+        self.fig, self.ax = plt.subplots()
+        self.ax.set_title("Agent Oxygen Deficit Path")
+        self.ax.set_xlabel("Timestep (7min)")
+        self.ax.set_ylabel("Oxygen Deficit (arb. units)")
+        (self.line,) = self.ax.plot(plotx, ploty, animated=True)
+        self.ax.axhspan(0, 2750, facecolor='green', alpha=0.4)
+        self.ax.axhspan(2750, 6000, facecolor='yellow', alpha=0.4)
+        self.ax.axhspan(6000, MAX_OXYDEF, facecolor='red', alpha=0.4)
+        self.ax.set_xlim(-10,10000)
+        self.ax.set_ylim(0,MAX_OXYDEF)
+        plt.show(block=False)
+        plt.pause(0.0001)
+        self.bg = self.fig.canvas.copy_from_bbox(self.fig.bbox)
+        self.ax.draw_artist(self.line)
+        self.fig.canvas.blit(self.fig.bbox)
+        plt.pause(.0001)
