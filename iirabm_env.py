@@ -50,7 +50,7 @@ class Iirabm_Environment(gym.Env):
     """Custom Environment that follows gym interface"""
     metadata = {'render.modes': ['human']}
 
-    def __init__(self, rendering=None):
+    def __init__(self, rendering='console'):
         super(Iirabm_Environment, self).__init__()
 
         self.ptrToEnv = None
@@ -175,7 +175,7 @@ class Iirabm_Environment(gym.Env):
 
         return self._next_observation()
 
-    def render(self, action, mode='human', close=False):
+    def render(self, action, mode='console', close=False):
         np.set_printoptions(precision=2, suppress=True)
         output = "step: {:4.0f}, Oxygen Deficit: {:5.0f}, Mults: {:5.2f}, {:5.2f}, {:5.2f}, {:5.2f}, {:5.2f}, {:5.2f}, {:5.2f}, {:5.2f}, {:5.2f}, {:5.2f}, {:5.2f}".format(self.current_step, SIM.getOxydef(self.ptrToEnv), action[0],action[1],action[2],action[3],action[4],action[5],action[6],action[7],action[8],action[9],action[10])
         if mode == 'human' or mode == 'console':
