@@ -147,14 +147,10 @@ class Iirabm_Environment(gym.Env):
             return_reward *= -1
 
         if self.oxydef_history[self.current_step] < 2750:
-            if return_reward > 0:
-                return_reward *=5
-            else:
-                return_reward *= .5
+            return_reward += 2
 
         if self.oxydef_history[self.current_step] > 6000:
-            if return_reward > 0:
-                return_reward *=2
+            return_reward -= 2
 
         return float(return_reward)
 
