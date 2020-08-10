@@ -203,7 +203,7 @@ class Iirabm_Environment(gym.Env):
         self.ax.axhspan(0, 2750, facecolor='green', alpha=0.4)
         self.ax.axhspan(2750, 6000, facecolor='yellow', alpha=0.4)
         self.ax.axhspan(6000, MAX_OXYDEF, facecolor='red', alpha=0.4)
-        self.ax.set_xlim(-10,10000)
+        self.ax.set_xlim(-10,MAX_STEPS)
         self.ax.set_ylim(0,MAX_OXYDEF)
         plt.show(block=False)
         plt.pause(0.0001)
