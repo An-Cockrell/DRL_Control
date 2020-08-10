@@ -22,7 +22,7 @@ import tensorflow_probability as tfp
 tfd = tfp.distributions
 
 
-env = Iirabm_Environment(rendering="human")
+env = Iirabm_Environment(rendering="console")
 
 ################################################################
 #sample from state space for state normalization
@@ -39,8 +39,8 @@ def scale_state(state):                 #requires input shape=(2,)
 ###################################################################
 
 def value_function():
-    num_hidden1 = 1331
-    num_hidden2 = 1331
+    num_hidden1 = 121
+    num_hidden2 = 121
     num_outputs = np.squeeze(env.action_space.shape)
 
     with tfc.variable_scope("value_network"):
@@ -55,8 +55,8 @@ def value_function():
     return model
 
 def policy_network():
-    num_hidden1 = 1331
-    num_hidden2 = 1331
+    num_hidden1 = 121
+    num_hidden2 = 121
     num_outputs = np.squeeze(env.action_space.shape)
 
     init_xavier = tf.initializers.glorot_uniform()
