@@ -14,6 +14,7 @@ import wrapper_setup
 import gym
 
 import matplotlib.pyplot as plt
+import scipy
 
 # PLOTTING VARS
 globalLine = None
@@ -54,7 +55,7 @@ class Iirabm_Environment(gym.Env):
         super(Iirabm_Environment, self).__init__()
 
         self.ptrToEnv = None
-        self.reward_range = (-5,10000)
+        self.reward_range = (-100,100)
         self.cytokine_history = np.zeros((11,10000))
         self.cytokine_mults = np.zeros((11,1))
         self.oxydef_history = np.zeros((1,10000))
@@ -140,28 +141,10 @@ class Iirabm_Environment(gym.Env):
 
     def calculate_reward(self):
         return_reward = 0
-        if self.current_step % 100 == 0:
-            # return_reward = return_reward - self.oxydef_history[self.current_step]
-            # return_reward = return_reward / self.current_step
-            # # return_reward += self.current_step
-            if self.oxydef_history[self.current_step] > 6000:
-                return_reward = -5
-            # if self.oxydef_history[self.current_step] > 4500:
-            #     return_reward = -5
-            # if self.oxydef_history[self.current_step] > 6000:
-            #     return_reward = -10
-            # if self.oxydef_history[self.current_step] > 7500:
-            #     return_reward = -100
-            if self.oxydef_history[self.current_step] < 2750:
-                return_reward = 5
-            if self.oxydef_history[self.current_step] < 2500:
-                return_reward = 7
-            if self.oxydef_history[self.current_step] < 2250:
-                return_reward = 10
-            if self.oxydef_history[self.current_step] < 2000:
-                return_reward = 100
-            if self.oxydef_history[self.current_step] < 50:
-                return_reward = 10000
+        if self.current_step > 100:
+            slope_observation_range = 50
+            return_reward, intercept, r_value, p_value, std_err = scipy.stats.linregress(range(slope_observation_range),self.oxydef_history[self.current_step-slope_observation_range:self.current_step])
+            return_reward *= -1
         return float(return_reward)
 
     def reset(self):

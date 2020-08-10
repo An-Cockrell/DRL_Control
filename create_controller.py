@@ -39,8 +39,8 @@ def scale_state(state):                 #requires input shape=(2,)
 ###################################################################
 
 def value_function():
-    num_hidden1 = 121
-    num_hidden2 = 121
+    num_hidden1 = 1331
+    num_hidden2 = 1331
     num_outputs = np.squeeze(env.action_space.shape)
 
     with tfc.variable_scope("value_network"):
@@ -55,7 +55,7 @@ def value_function():
     return model
 
 def policy_network():
-    num_hidden1 = 121
+    num_hidden1 = 1331
     num_hidden2 = 1331
     num_outputs = np.squeeze(env.action_space.shape)
 
