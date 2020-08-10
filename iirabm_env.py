@@ -64,8 +64,8 @@ class Iirabm_Environment(gym.Env):
         self.rendering = rendering
         # Actions of the format Buy x%, Sell x%, Hold, etc.
         self.action_space = gym.spaces.Box(
-            low=0.01,
-            high=10,
+            low=-1,
+            high=1,
             shape=(NUM_CYTOKINES,),
             dtype=np.float32)
 
@@ -106,6 +106,11 @@ class Iirabm_Environment(gym.Env):
         return obs, reward, done, {}
 
     def take_action(self,action_vector):
+        # rescale multipliers between 0 and 10
+        for action in action_vector:
+            if action > 0:
+                action = (action * 10) -1
+        action_vector = (action_vector + 1)
         self.action_history[:,self.current_step] = action_vector
 
         SIM.setTNFmult(self.ptrToEnv, action_vector[0])
