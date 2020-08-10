@@ -95,7 +95,7 @@ class Iirabm_Environment(gym.Env):
     def step(self, action):
     # Execute one time step within the environment
 
-        self.take_action(action)
+        action = self.take_action(action)
         self.cytokine_history = SIM.getAllSignalsReturn(self.ptrToEnv)[[2,3,4,5,12,13,14,15,16,17,18],:]
         self.oxydef_history = SIM.getAllSignalsReturn(self.ptrToEnv)[0,:]
         self.current_step = SIM.getSimulationStep(self.ptrToEnv)
@@ -107,11 +107,14 @@ class Iirabm_Environment(gym.Env):
         return obs, reward, done, {}
 
     def take_action(self,action_vector):
+        vector = np.zeros(len(action_vector))
         # rescale multipliers between 0 and 10
-        for action in action_vector:
-            if action > 0:
-                action = (action * 10) -1
-        action_vector = (action_vector + 1)
+        for i in range(len(action_vector)):
+            if action_vector[i] > 0:
+                vector[i] = (action_vector[i] * 10) -1.01
+            else:
+                vector[i] = action_vector[i]
+        action_vector = vector + 1.01
         self.action_history[:,self.current_step] = action_vector
 
         SIM.setTNFmult(self.ptrToEnv, action_vector[0])
@@ -127,6 +130,8 @@ class Iirabm_Environment(gym.Env):
         SIM.setsIL1rmult(self.ptrToEnv, action_vector[10])
 
         SIM.singleStep(self.ptrToEnv)
+
+        return action_vector
 
     def _next_observation(self):
         frame = self.cytokine_history[:,self.current_step-NUM_OBSERVTAIONS:self.current_step]
