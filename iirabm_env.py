@@ -145,6 +145,18 @@ class Iirabm_Environment(gym.Env):
             slope_observation_range = 50
             return_reward, intercept, r_value, p_value, std_err = scipy.stats.linregress(range(slope_observation_range),self.oxydef_history[self.current_step-slope_observation_range:self.current_step])
             return_reward *= -1
+
+        if self.oxydef_history[self.current_step] < 2750:
+            if return_reward > 0:
+                return_reward *=2
+            else:
+                return_reward *= .5
+
+        if self.oxydef_history[self.current_step] > 6000:
+            if return_reward < 0:
+                return_reward *=2
+            else:
+                return_reward *= .5
         return float(return_reward)
 
     def reset(self):
