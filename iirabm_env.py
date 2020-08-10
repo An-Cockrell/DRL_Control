@@ -25,6 +25,7 @@ globalBG = None
 
 
 MAX_OXYDEF = 8160
+MAX_STEPS = 4000
 NUM_CYTOKINES = 11
 NUM_OBSERVTAIONS = 5
 OBS_VEC_SHAPE = NUM_CYTOKINES*(NUM_OBSERVTAIONS+1)
@@ -140,7 +141,7 @@ class Iirabm_Environment(gym.Env):
             DONE = True
         if self.oxydef_history[self.current_step] > MAX_OXYDEF:
             DONE = True
-        if self.current_step == 9999:
+        if self.current_step == MAX_STEPS:
             DONE = True
         return bool(DONE)
 
@@ -185,9 +186,9 @@ class Iirabm_Environment(gym.Env):
             plt.pause(.00000001)
 
     def initialize_render(self):
-        plotx = np.array(range(10000))
+        plotx = np.array(range(MAX_STEPS))
         print(plotx.shape)
-        ploty = np.zeros((10000-1))
+        ploty = np.zeros((MAX_STEPS-1))
         ploty = np.append(ploty,MAX_OXYDEF)
         self.fig, self.ax = plt.subplots()
         self.ax.set_title("Agent Oxygen Deficit Path")
