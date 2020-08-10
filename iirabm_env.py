@@ -50,7 +50,7 @@ class Iirabm_Environment(gym.Env):
     """Custom Environment that follows gym interface"""
     metadata = {'render.modes': ['human']}
 
-    def __init__(self, rendering=False):
+    def __init__(self, rendering=None):
         super(Iirabm_Environment, self).__init__()
 
         self.ptrToEnv = None
@@ -78,7 +78,8 @@ class Iirabm_Environment(gym.Env):
             shape=(OBS_VEC_SHAPE,),
             dtype=np.float32)
 
-        if self.rendering:
+        if self.rendering == "human":
+            print("initializing")
             self.initialize_render()
             # self.fig, self.ax, self. line, self.bg = initialize_render()
         # Define action and observation space
@@ -96,17 +97,11 @@ class Iirabm_Environment(gym.Env):
         self.cytokine_history = SIM.getAllSignalsReturn(self.ptrToEnv)[[2,3,4,5,12,13,14,15,16,17,18],:]
         self.oxydef_history = SIM.getAllSignalsReturn(self.ptrToEnv)[0,:]
         self.current_step = SIM.getSimulationStep(self.ptrToEnv)
-        np.set_printoptions(precision=2, suppress=True)
-
-        output = "step: {:4.0f}, Oxygen Deficit: {:5.0f}, Mults: {:5.2f}, {:5.2f}, {:5.2f}, {:5.2f}, {:5.2f}, {:5.2f}, {:5.2f}, {:5.2f}, {:5.2f}, {:5.2f}, {:5.2f}".format(self.current_step, SIM.getOxydef(self.ptrToEnv), action[0],action[1],action[2],action[3],action[4],action[5],action[6],action[7],action[8],action[9],action[10])
-        if self.rendering:
-            self.render()
-            print(output, end="\r")
         # print("step: " + str(self.current_step) + ", Oxygen Deficit: " + str(np.round(SIM.getOxydef(self.ptrToEnv),0)) + ", Mults: " + str(np.round(action,2)),end="             \r")
         reward = self.calculate_reward()
         done = self.calculate_done()
         obs = self._next_observation()
-
+        self.render(action, mode=self.rendering)
         return obs, reward, done, {}
 
     def take_action(self,action_vector):
@@ -180,14 +175,19 @@ class Iirabm_Environment(gym.Env):
 
         return self._next_observation()
 
-    def render(self, mode='human', close=False):
+    def render(self, action, mode='human', close=False):
+        np.set_printoptions(precision=2, suppress=True)
+        output = "step: {:4.0f}, Oxygen Deficit: {:5.0f}, Mults: {:5.2f}, {:5.2f}, {:5.2f}, {:5.2f}, {:5.2f}, {:5.2f}, {:5.2f}, {:5.2f}, {:5.2f}, {:5.2f}, {:5.2f}".format(self.current_step, SIM.getOxydef(self.ptrToEnv), action[0],action[1],action[2],action[3],action[4],action[5],action[6],action[7],action[8],action[9],action[10])
+        if mode == 'human' or mode == 'console':
+            print(output, end="\r")
     # Render the environment to the screen
-        self.fig.canvas.restore_region(self.bg)
-        self.line.set_data(range(self.current_step), self.oxydef_history[:self.current_step])
-        self.ax.draw_artist(self.line)
-        self.fig.canvas.blit(self.fig.bbox)
-        self.fig.canvas.flush_events()
-        plt.pause(.00000001)
+        if mode == 'human':
+            self.fig.canvas.restore_region(self.bg)
+            self.line.set_data(range(self.current_step), self.oxydef_history[:self.current_step])
+            self.ax.draw_artist(self.line)
+            self.fig.canvas.blit(self.fig.bbox)
+            self.fig.canvas.flush_events()
+            plt.pause(.00000001)
 
     def initialize_render(self):
         plotx = np.array(range(10000))
