@@ -78,7 +78,7 @@ def policy_network():
                                 meta_learn6, meta_learn7, meta_learn8, meta_learn9, meta_learn10])
 
     common = tf.keras.layers.Dense(num_hidden2, kernel_initializer=init_xavier)(meta_learner_layer)
-    norm = tf.keras.layers.Dense(tfp.layers.IndependentNormal.params_size(num_outputs),tf.nn.relu,
+    norm = tf.keras.layers.Dense(tfp.layers.IndependentNormal.params_size(num_outputs),tf.nn.sigmoid,
                               kernel_initializer=init_xavier)(common)
     output = tfp.layers.IndependentNormal(num_outputs)(norm)
 
