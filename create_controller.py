@@ -22,7 +22,7 @@ import tensorflow_probability as tfp
 tfd = tfp.distributions
 
 
-env = Iirabm_Environment(rendering="console")
+env = Iirabm_Environment(rendering="human")
 
 ################################################################
 #sample from state space for state normalization
@@ -55,7 +55,7 @@ def value_function():
     return model
 
 def policy_network():
-    num_hidden1 = 121
+    num_hidden1 = 11
     num_hidden2 = 121
     num_outputs = np.squeeze(env.action_space.shape)
 
@@ -108,7 +108,7 @@ for episode in range(num_episodes):
     # receive initial state from E
     state = env.reset()
     reward_total = 0
-    steps = 0
+    steps = env.current_step
     done = False
 
     while not done:

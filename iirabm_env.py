@@ -25,7 +25,7 @@ globalBG = None
 
 
 MAX_OXYDEF = 8160
-MAX_STEPS = 4000
+MAX_STEPS = 3500
 NUM_CYTOKINES = 11
 NUM_OBSERVTAIONS = 5
 OBS_VEC_SHAPE = NUM_CYTOKINES*(NUM_OBSERVTAIONS+1)
@@ -100,8 +100,8 @@ class Iirabm_Environment(gym.Env):
         self.oxydef_history = SIM.getAllSignalsReturn(self.ptrToEnv)[0,:]
         self.current_step = SIM.getSimulationStep(self.ptrToEnv)
         # print("step: " + str(self.current_step) + ", Oxygen Deficit: " + str(np.round(SIM.getOxydef(self.ptrToEnv),0)) + ", Mults: " + str(np.round(action,2)),end="             \r")
-        reward = self.calculate_reward()
         done = self.calculate_done()
+        reward = self.calculate_reward()
         obs = self._next_observation()
         self.render(action, mode=self.rendering)
         return obs, reward, done, {}
@@ -111,10 +111,10 @@ class Iirabm_Environment(gym.Env):
         # rescale multipliers between 0 and 10
         for i in range(len(action_vector)):
             if action_vector[i] > 0:
-                vector[i] = (action_vector[i] * 10) -1.01
+                vector[i] = (action_vector[i] * 10) -1.001
             else:
                 vector[i] = action_vector[i]
-        action_vector = vector + 1.01
+        action_vector = vector + 1.001
         self.action_history[:,self.current_step] = action_vector
 
         SIM.setTNFmult(self.ptrToEnv, action_vector[0])
@@ -153,15 +153,21 @@ class Iirabm_Environment(gym.Env):
     def calculate_reward(self):
         return_reward = 0
         if self.current_step > 100:
-            slope_observation_range = 50
+            slope_observation_range = 75
             return_reward, intercept, r_value, p_value, std_err = scipy.stats.linregress(range(slope_observation_range),self.oxydef_history[self.current_step-slope_observation_range:self.current_step])
             return_reward *= -1
 
         if self.oxydef_history[self.current_step] < 2750:
             return_reward += 2
+            if self.calculate_done():
+                return_reward += 98
+                # if it lives then total +100 reward
 
         if self.oxydef_history[self.current_step] > 6000:
             return_reward -= 2
+            if self.calculate_done():
+                return_reward -= 98
+                # if it dies then total -100 reward
 
         return float(return_reward)
 
