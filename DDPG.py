@@ -242,15 +242,15 @@ def get_actor():
     meta_learner_layer = layers.Concatenate(axis=1)([meta_learn0, meta_learn1, meta_learn3, meta_learn4, meta_learn5,
                                 meta_learn6, meta_learn7, meta_learn8, meta_learn9, meta_learn10])
     common = layers.BatchNormalization()(meta_learner_layer)
-    common = layers.Dense(121, activation="relu")(common)
+    common = layers.Dense(121, activation="sigmoid")(common)
     out_common = layers.BatchNormalization()(common)
 
     out = layers.Dense(121, activation="relu")(out_common)
     out = layers.BatchNormalization()(out)
     outputs = layers.Dense(num_actions, activation="tanh", kernel_initializer=last_init)(out)
 
-    # rescale multipliers between 0.001 and 10 ( really 0.005 and 10.005)
-    outputs = outputs + 1.01
+    # rescale multipliers between 0.001 and 10 ( really 0 and 10)
+    outputs = outputs + 1
     outputs = outputs * 5
 
     # Our upper bound is 2.0 for Pendulum.
@@ -380,7 +380,7 @@ for ep in range(total_episodes):
 
     # Mean of last 40 episodes
     avg_reward = np.mean(ep_reward_list[-40:])
-    print("Episode * {} * Avg Reward is ==> {}                                                                      ".format(ep, avg_reward))
+    print("Episode * {} * Avg Reward is ==> {} * Num Steps in Episode is ==> {} *                                                          ".format(ep, avg_reward, env.current_step))
     avg_reward_list.append(avg_reward)
 
 # Plotting graph
