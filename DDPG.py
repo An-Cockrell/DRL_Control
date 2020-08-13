@@ -247,7 +247,7 @@ def get_actor():
     outputs = layers.Dense(num_actions, activation="tanh", kernel_initializer=last_init)(out)
 
     # rescale multipliers between 0.001 and 10 ( really 0.005 and 10.005)
-    outputs = outputs + 1.001
+    outputs = outputs + 1.01
     outputs = outputs * 5
 
     # Our upper bound is 2.0 for Pendulum.
