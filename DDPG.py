@@ -225,8 +225,8 @@ def get_actor():
     last_init = tf.random_uniform_initializer(minval=-0.003, maxval=0.003)
 
     input = tf.keras.layers.Input(shape=(num_states,))
-    num_hidden1 = 121
-    num_hidden2 = 121
+    num_hidden1 = 11
+    num_hidden2 = 11
 
     meta_learn0 = layers.Dense(num_hidden1, activation="relu")(input)
     meta_learn1 = layers.Dense(num_hidden1, activation="relu")(input)
@@ -242,38 +242,12 @@ def get_actor():
     meta_learner_layer = layers.Concatenate(axis=1)([meta_learn0, meta_learn1, meta_learn3, meta_learn4, meta_learn5,
                                 meta_learn6, meta_learn7, meta_learn8, meta_learn9, meta_learn10])
     common = layers.BatchNormalization()(meta_learner_layer)
-    common = layers.Dense(1331, activation="elu")(common)
+    common = layers.Dense(121, activation="relu")(common)
     out_common = layers.BatchNormalization()(common)
 
-    out0 = layers.Dense(num_hidden2, activation="elu")(out_common)
-    out1 = layers.Dense(num_hidden2, activation="elu")(out_common)
-    out2 = layers.Dense(num_hidden2, activation="elu")(out_common)
-    out3 = layers.Dense(num_hidden2, activation="elu")(out_common)
-    out4 = layers.Dense(num_hidden2, activation="elu")(out_common)
-    out5 = layers.Dense(num_hidden2, activation="elu")(out_common)
-    out6 = layers.Dense(num_hidden2, activation="elu")(out_common)
-    out7 = layers.Dense(num_hidden2, activation="elu")(out_common)
-    out8 = layers.Dense(num_hidden2, activation="elu")(out_common)
-    out9 = layers.Dense(num_hidden2, activation="elu")(out_common)
-    out10 = layers.Dense(num_hidden2, activation="elu")(out_common)
-
-    out0 = layers.Dense(1, activation="tanh", kernel_initializer=last_init)(out0)
-    out1 = layers.Dense(1, activation="tanh", kernel_initializer=last_init)(out1)
-    out2 = layers.Dense(1, activation="tanh", kernel_initializer=last_init)(out2)
-    out3 = layers.Dense(1, activation="tanh", kernel_initializer=last_init)(out3)
-    out4 = layers.Dense(1, activation="tanh", kernel_initializer=last_init)(out4)
-    out5 = layers.Dense(1, activation="tanh", kernel_initializer=last_init)(out5)
-    out6 = layers.Dense(1, activation="tanh", kernel_initializer=last_init)(out6)
-    out7 = layers.Dense(1, activation="tanh", kernel_initializer=last_init)(out7)
-    out8 = layers.Dense(1, activation="tanh", kernel_initializer=last_init)(out8)
-    out9 = layers.Dense(1, activation="tanh", kernel_initializer=last_init)(out9)
-    out10 = layers.Dense(1, activation="tanh", kernel_initializer=last_init)(out10)
-
-    outputs = layers.Concatenate(axis=1)([out0, out1, out2, out3, out4, out5, out6, out7, out8, out9, out10])
-
-    # out = layers.Dense(1331, activation="relu")(out)
-    # out = layers.BatchNormalization()(out)
-    # outputs = layers.Dense(num_actions, activation="tanh", kernel_initializer=last_init)(out)
+    out = layers.Dense(121, activation="relu")(out_common)
+    out = layers.BatchNormalization()(out)
+    outputs = layers.Dense(num_actions, activation="tanh", kernel_initializer=last_init)(out)
 
     # rescale multipliers between 0.001 and 10 ( really 0.005 and 10.005)
     outputs = outputs + 1.01
