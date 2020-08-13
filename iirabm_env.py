@@ -14,7 +14,7 @@ import wrapper_setup
 import gym
 
 import matplotlib.pyplot as plt
-import scipy
+from scipy import stats
 
 # PLOTTING VARS
 globalLine = None
@@ -65,8 +65,8 @@ class Iirabm_Environment(gym.Env):
         self.rendering = rendering
         # Actions of the format Buy x%, Sell x%, Hold, etc.
         self.action_space = gym.spaces.Box(
-            low=-1,
-            high=1,
+            low=.001,
+            high=10,
             shape=(NUM_CYTOKINES,),
             dtype=np.float32)
 
@@ -107,14 +107,7 @@ class Iirabm_Environment(gym.Env):
         return obs, reward, done, {}
 
     def take_action(self,action_vector):
-        vector = np.zeros(len(action_vector))
-        # rescale multipliers between 0 and 10
-        for i in range(len(action_vector)):
-            if action_vector[i] > 0:
-                vector[i] = (action_vector[i] * 10) -1.001
-            else:
-                vector[i] = action_vector[i]
-        action_vector = vector + 1.001
+        action_vector = np.squeeze(action_vector)
         self.action_history[:,self.current_step] = action_vector
 
         SIM.setTNFmult(self.ptrToEnv, action_vector[0])
@@ -154,7 +147,7 @@ class Iirabm_Environment(gym.Env):
         return_reward = 0
         if self.current_step > 100:
             slope_observation_range = 75
-            return_reward, intercept, r_value, p_value, std_err = scipy.stats.linregress(range(slope_observation_range),self.oxydef_history[self.current_step-slope_observation_range:self.current_step])
+            return_reward, intercept, r_value, p_value, std_err = stats.linregress(range(slope_observation_range),self.oxydef_history[self.current_step-slope_observation_range:self.current_step])
             return_reward *= -1
 
         if self.oxydef_history[self.current_step] < 2750:
@@ -182,7 +175,9 @@ class Iirabm_Environment(gym.Env):
 
         return self._next_observation()
 
-    def render(self, action, mode='console', close=False):
+    def render(self, action=None, mode='console', close=False):
+        if action is None:
+            action = self.action_history[:,self.current_step-1]
         np.set_printoptions(precision=2, suppress=True)
         output = "step: {:4.0f}, Oxygen Deficit: {:5.0f}, Mults: {:5.2f}, {:5.2f}, {:5.2f}, {:5.2f}, {:5.2f}, {:5.2f}, {:5.2f}, {:5.2f}, {:5.2f}, {:5.2f}, {:5.2f}".format(self.current_step, SIM.getOxydef(self.ptrToEnv), action[0],action[1],action[2],action[3],action[4],action[5],action[6],action[7],action[8],action[9],action[10])
         if mode == 'human' or mode == 'console':
