@@ -221,8 +221,8 @@ as we use the `tanh` activation.
 
 
 def get_actor():
-    # Initialize weights between -5e-1 and 5-e1
-    last_init = tf.random_uniform_initializer(minval=-0.5, maxval=0.5)
+    # Initialize weights between -3e-3 and 3-e3
+    last_init = tf.random_uniform_initializer(minval=-0.3, maxval=0.3)
 
     input = tf.keras.layers.Input(shape=(num_states,))
     num_hidden1 = 11
