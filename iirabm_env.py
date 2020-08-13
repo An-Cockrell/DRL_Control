@@ -28,7 +28,7 @@ MAX_OXYDEF = 8160
 MAX_STEPS = 3500
 NUM_CYTOKINES = 11
 NUM_OBSERVTAIONS = 5
-OBS_VEC_SHAPE = NUM_CYTOKINES*(NUM_OBSERVTAIONS+1)
+OBS_VEC_SHAPE = NUM_CYTOKINES*(NUM_OBSERVTAIONS)
 
 all_signals_max = np.array([9048.283, 8969.218, 56.453243, 24.432032, 203.75848, 194.54462, 59.198627, 93.91482, 986.0, 465., 133., 227., 176., 432.44122, 425.84256, 79.20918, 220.06897, 217.0821, 11.526534, 43.950306])
 
@@ -65,15 +65,15 @@ class Iirabm_Environment(gym.Env):
         self.rendering = rendering
         # Actions of the format Buy x%, Sell x%, Hold, etc.
         self.action_space = gym.spaces.Box(
-            low=.001,
+            low=.01,
             high=10,
             shape=(NUM_CYTOKINES,),
             dtype=np.float32)
 
-        obs_space_high = np.array([10,10,10,10,10,10,10,10,10,10,10])
+        obs_space_high = np.array([])
         for i in range(NUM_OBSERVTAIONS):
             obs_space_high = np.hstack((obs_space_high,all_signals_max[[2,3,4,5,12,13,14,15,16,17,18]]))
-
+        print(obs_space_high.shape)
         self.observation_space = gym.spaces.Box(
             low=0,
             high=obs_space_high,
@@ -132,6 +132,7 @@ class Iirabm_Environment(gym.Env):
         frame = frame.flatten()
         current_mults = self.cytokine_mults
         observation = np.append(current_mults,frame)
+        observation = frame
         return observation
 
     def calculate_done(self):
@@ -146,8 +147,8 @@ class Iirabm_Environment(gym.Env):
 
     def calculate_reward(self):
         return_reward = 0
-        if self.current_step > 100:
-            slope_observation_range = 75
+        if self.current_step > 10:
+            slope_observation_range = 10
             return_reward, intercept, r_value, p_value, std_err = stats.linregress(range(slope_observation_range),self.oxydef_history[self.current_step-slope_observation_range:self.current_step])
             return_reward *= -1
 
