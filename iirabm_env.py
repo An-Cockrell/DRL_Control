@@ -109,6 +109,7 @@ class Iirabm_Environment(gym.Env):
     def take_action(self,action_vector):
         action_vector = np.squeeze(action_vector)
         self.action_history[:,self.current_step] = action_vector
+        self.cytokine_mults = action_vector
 
         SIM.setTNFmult(self.ptrToEnv, action_vector[0])
         SIM.setsTNFrmult(self.ptrToEnv, action_vector[1])
