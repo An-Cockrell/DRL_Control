@@ -65,7 +65,7 @@ class Iirabm_Environment(gym.Env):
         self.rendering = rendering
         # Actions of the format Buy x%, Sell x%, Hold, etc.
         self.action_space = gym.spaces.Box(
-            low=.01,
+            low=.001,
             high=10,
             shape=(NUM_CYTOKINES,),
             dtype=np.float32)
@@ -159,9 +159,9 @@ class Iirabm_Environment(gym.Env):
                 # if it lives then total +100 reward
 
         if self.oxydef_history[self.current_step] > 6000:
-            return_reward -= 2
+            return_reward -= 0.5
             if self.calculate_done():
-                return_reward -= 98
+                return_reward -= 99.5
                 # if it dies then total -100 reward
 
         return float(return_reward)
@@ -180,8 +180,8 @@ class Iirabm_Environment(gym.Env):
     def render(self, action=None, mode='console', close=False):
         if action is None:
             action = self.action_history[:,self.current_step-1]
-        np.set_printoptions(precision=2, suppress=True)
-        output = "step: {:4.0f}, Oxygen Deficit: {:5.0f}, Mults: {:5.2f}, {:5.2f}, {:5.2f}, {:5.2f}, {:5.2f}, {:5.2f}, {:5.2f}, {:5.2f}, {:5.2f}, {:5.2f}, {:5.2f}".format(self.current_step, SIM.getOxydef(self.ptrToEnv), action[0],action[1],action[2],action[3],action[4],action[5],action[6],action[7],action[8],action[9],action[10])
+        np.set_printoptions(precision=3, suppress=True)
+        output = "step: {:4.0f}, Oxygen Deficit: {:6.0f}, Mults:{:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f}, {:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f}".format(self.current_step, SIM.getOxydef(self.ptrToEnv), action[0],action[1],action[2],action[3],action[4],action[5],action[6],action[7],action[8],action[9],action[10])
         if mode == 'human' or mode == 'console':
             print(output, end="\r")
     # Render the environment to the screen
