@@ -242,7 +242,7 @@ def get_actor():
     meta_learner_layer = layers.Concatenate(axis=1)([meta_learn0, meta_learn1, meta_learn3, meta_learn4, meta_learn5,
                                 meta_learn6, meta_learn7, meta_learn8, meta_learn9, meta_learn10])
     common = layers.BatchNormalization()(meta_learner_layer)
-    common = layers.Dense(121, activation="sigmoid")(common)
+    common = layers.Dense(121, activation="tanh", kernel_initializer=last_init)(common)
     out_common = layers.BatchNormalization()(common)
 
     out = layers.Dense(121, activation="relu")(out_common)
