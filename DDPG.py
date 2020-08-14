@@ -228,24 +228,21 @@ def get_actor():
     num_hidden1 = 11
     num_hidden2 = 11
 
-    meta_learn0 = layers.Dense(num_hidden1, activation="relu")(input)
-    meta_learn1 = layers.Dense(num_hidden1, activation="relu")(input)
-    meta_learn2 = layers.Dense(num_hidden1, activation="relu")(input)
-    meta_learn3 = layers.Dense(num_hidden1, activation="relu")(input)
-    meta_learn4 = layers.Dense(num_hidden1, activation="relu")(input)
-    meta_learn5 = layers.Dense(num_hidden1, activation="relu")(input)
-    meta_learn6 = layers.Dense(num_hidden1, activation="relu")(input)
-    meta_learn7 = layers.Dense(num_hidden1, activation="relu")(input)
-    meta_learn8 = layers.Dense(num_hidden1, activation="relu")(input)
-    meta_learn9 = layers.Dense(num_hidden1, activation="relu")(input)
-    meta_learn10 = layers.Dense(num_hidden1, activation="relu")(input)
-    meta_learner_layer = layers.Concatenate(axis=1)([meta_learn0, meta_learn1, meta_learn3, meta_learn4, meta_learn5,
-                                meta_learn6, meta_learn7, meta_learn8, meta_learn9, meta_learn10])
-    common = layers.BatchNormalization()(meta_learner_layer)
-    common = layers.Dense(121, activation="tanh", kernel_initializer=last_init)(common)
-    out_common = layers.BatchNormalization()(common)
+    meta_learn_outputs = []
+    for i in range(11):
+        indexes_for_learner = []
+        for j in range(1, (num_states%11) + 1):
+            indexes_for_learner.append(i + j*11)
+        temp = layers.Lambda(lambda x: x[indexes_for_learner,])(input)
+        current_meta_learn = layers.Dense(num_hidden1, activation="relu")(temp)
+        meta_learn_outputs.append(current_meta_learn)
 
-    out = layers.Dense(121, activation="relu")(out_common)
+    meta_learner_layer = layers.Concatenate(axis=1)(meta_learn_outputs)
+    common = layers.BatchNormalization()(meta_learner_layer)
+    common = layers.Dense(121, activation="sigmoid", kernel_initializer=last_init)(common)
+    out = layers.BatchNormalization()(common)
+
+    out = layers.Dense(121, activation="relu")(out)
     out = layers.BatchNormalization()(out)
     outputs = layers.Dense(num_actions, activation="tanh", kernel_initializer=last_init)(out)
 
@@ -255,6 +252,7 @@ def get_actor():
 
     # Our upper bound is 2.0 for Pendulum.
     model = tf.keras.Model(input, outputs)
+    model.summary()
     return model
 
 

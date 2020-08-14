@@ -151,7 +151,7 @@ class Iirabm_Environment(gym.Env):
             slope_observation_range = 10
             return_reward, intercept, r_value, p_value, std_err = stats.linregress(range(slope_observation_range),self.oxydef_history[self.current_step-slope_observation_range:self.current_step])
             return_reward *= -1
-
+        return_reward += .1 #bonus for staying alive per step
         if self.oxydef_history[self.current_step] < 2750:
             return_reward += 2
             if self.calculate_done():
