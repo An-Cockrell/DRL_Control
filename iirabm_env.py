@@ -27,7 +27,7 @@ globalBG = None
 MAX_OXYDEF = 8160
 MAX_STEPS = 3500
 NUM_CYTOKINES = 11
-NUM_OBSERVTAIONS = 1
+NUM_OBSERVTAIONS = 5
 OBS_VEC_SHAPE = NUM_CYTOKINES*(NUM_OBSERVTAIONS)
 
 all_signals_max = np.array([9048.283, 8969.218, 56.453243, 24.432032, 203.75848, 194.54462, 59.198627, 93.91482, 986.0, 465., 133., 227., 176., 432.44122, 425.84256, 79.20918, 220.06897, 217.0821, 11.526534, 43.950306])
@@ -52,7 +52,7 @@ class Iirabm_Environment(gym.Env):
     """Custom Environment that follows gym interface"""
     metadata = {'render.modes': ['human']}
 
-    def __init__(self, rendering='console'):
+    def __init__(self, rendering=None):
         super(Iirabm_Environment, self).__init__()
 
         self.ptrToEnv = None
@@ -103,7 +103,7 @@ class Iirabm_Environment(gym.Env):
         done = self.calculate_done()
         reward = self.calculate_reward()
         obs = self.next_observation()
-        self.render(action, mode=self.rendering)
+        self.render(action)
         return obs, reward, done, {}
 
     def take_action(self,action_vector):
@@ -177,7 +177,8 @@ class Iirabm_Environment(gym.Env):
 
         return self.next_observation()
 
-    def render(self, action=None, mode='console', close=False):
+    def render(self, action=None, close=False):
+        mode = self.rendering
         if action is None:
             action = self.action_history[:,self.current_step-1]
         np.set_printoptions(precision=3, suppress=True)

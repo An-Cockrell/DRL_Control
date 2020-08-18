@@ -17,17 +17,7 @@ from tensorflow.python.framework import ops
 def output_activation(x):
     # function to scale tanh activation to be 1-10 if x>0 or 0-1 if x < 0
     # return tf.cond(x >= 0, lambda: tf.math.tanh(x+0.1)*10, lambda: tf.math.tanh(x) + 1)
-    out = tf.math.sigmoid(x)*10
-    return tf.clip_by_value(out, .001, 10)
-    # out = None
-    # for i, element in truth_tensor:
-    #     temp = lambda: tf.math.tanh(x[i]+0.1)*10, lambda: tf.math.tanh(x[i]) + 1
-    #     if out is not None:
-    #         out = tf.concat([out, temp], axis=1)
-    #     else:
-    #         out = temp
-    # print(out)
-    # return out
+    return tf.math.sigmoid()
 
 def actor_network(obs_size, action_size):
     num_hidden1 = 242
@@ -135,7 +125,6 @@ class Agent():
 
         if add_noise:
             action += self.noise.sample()
-        action = tf.clip_by_value(action, .001, 10)
         return action
 
     def reset(self):
@@ -203,7 +192,7 @@ class Agent():
 class OUNoise:
     """Ornstein-Uhlenbeck process."""
 
-    def __init__(self, size, mu=0., theta=0.4, sigma=.3):
+    def __init__(self, size, mu=0., theta=0.4, sigma=0.2):
         """Initialize parameters and noise process."""
         self.mu = mu * np.ones(size)
         self.theta = theta
@@ -287,18 +276,19 @@ def ddpg(episodes, step, pretrained, noise):
         state = env.reset()
         score = 0
 
-        while True:
-            t = env.current_step
+        for t in range(step):
+
+            env.render()
+
             state = tf.expand_dims(tf.convert_to_tensor(state), 0)
             action = agent.act(state, noise)
             next_state, reward, done, info = env.step(action[0])
-            # print(reward)
             # agent.step(state, action, reward, next_state, done)
             state = next_state.squeeze()
             score += reward
 
             if done:
-                print('Reward: {} | Episode: {} | Steps: {}                                                                   '.format(score, i, env.current_step))
+                print('Reward: {} | Episode: {}/{}'.format(score, i, episodes))
                 break
 
         reward_list.append(score)
@@ -319,7 +309,7 @@ def ddpg(episodes, step, pretrained, noise):
     return reward_list
 
 
-scores = ddpg(episodes=100, step=2000, pretrained=False, noise=True)
+scores = ddpg(episodes=100, step=2000, pretrained=0, noise=0)
 
 fig = plt.figure()
 plt.plot(np.arange(1, len(scores) + 1), scores)
