@@ -7,6 +7,9 @@
 # https://medium.com/@asteinbach/actor-critic-using-deep-rl-continuous-mountain-car-in-tensorflow-4c1fb2110f7c
 # https://gist.github.com/nevkontakte/2db02b57345ca521d541f8cdbf4081c5
 
+# https://yanpanlau.github.io/2016/10/11/Torcs-Keras.html
+
+
 import ctypes
 from numpy.ctypeslib import ndpointer
 from iirabm_env import Iirabm_Environment
@@ -78,7 +81,7 @@ def policy_network():
                                 meta_learn6, meta_learn7, meta_learn8, meta_learn9, meta_learn10])
 
     common = tf.keras.layers.Dense(num_hidden2, kernel_initializer=init_xavier)(meta_learner_layer)
-    norm = tf.keras.layers.Dense(tfp.layers.IndependentNormal.params_size(num_outputs),tf.nn.sigmoid,
+    norm = tf.keras.layers.Dense(tfp.layers.IndependentNormal.params_size(num_outputs),tf.nn.tanh,
                               kernel_initializer=init_xavier)(common)
     output = tfp.layers.IndependentNormal(num_outputs)(norm)
 
