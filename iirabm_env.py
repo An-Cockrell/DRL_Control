@@ -27,7 +27,7 @@ globalBG = None
 MAX_OXYDEF = 8160
 MAX_STEPS = 3500
 NUM_CYTOKINES = 11
-NUM_OBSERVTAIONS = 5
+NUM_OBSERVTAIONS = 1
 OBS_VEC_SHAPE = NUM_CYTOKINES*(NUM_OBSERVTAIONS)
 
 all_signals_max = np.array([9048.283, 8969.218, 56.453243, 24.432032, 203.75848, 194.54462, 59.198627, 93.91482, 986.0, 465., 133., 227., 176., 432.44122, 425.84256, 79.20918, 220.06897, 217.0821, 11.526534, 43.950306])
@@ -102,7 +102,7 @@ class Iirabm_Environment(gym.Env):
         # print("step: " + str(self.current_step) + ", Oxygen Deficit: " + str(np.round(SIM.getOxydef(self.ptrToEnv),0)) + ", Mults: " + str(np.round(action,2)),end="             \r")
         done = self.calculate_done()
         reward = self.calculate_reward()
-        obs = self._next_observation()
+        obs = self.next_observation()
         self.render(action, mode=self.rendering)
         return obs, reward, done, {}
 
@@ -127,7 +127,7 @@ class Iirabm_Environment(gym.Env):
 
         return action_vector
 
-    def _next_observation(self):
+    def next_observation(self):
         frame = self.cytokine_history[:,self.current_step-NUM_OBSERVTAIONS:self.current_step]
         frame = frame.flatten()
         current_mults = self.cytokine_mults
@@ -136,13 +136,13 @@ class Iirabm_Environment(gym.Env):
         return observation
 
     def calculate_done(self):
-        DONE = False
+        DONE = 0
         if self.oxydef_history[self.current_step] < 10:
-            DONE = True
+            DONE = 1
         if self.oxydef_history[self.current_step] > MAX_OXYDEF:
-            DONE = True
+            DONE = 1
         if self.current_step == MAX_STEPS:
-            DONE = True
+            DONE = 1
         return bool(DONE)
 
     def calculate_reward(self):
@@ -175,13 +175,13 @@ class Iirabm_Environment(gym.Env):
         self.oxydef_history = SIM.getAllSignalsReturn(self.ptrToEnv)[0,:]
         self.current_step = SIM.getSimulationStep(self.ptrToEnv)
 
-        return self._next_observation()
+        return self.next_observation()
 
     def render(self, action=None, mode='console', close=False):
         if action is None:
             action = self.action_history[:,self.current_step-1]
         np.set_printoptions(precision=3, suppress=True)
-        output = "step: {:4.0f}, Oxygen Deficit: {:6.0f}, Mults:{:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f}, {:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f}".format(self.current_step, SIM.getOxydef(self.ptrToEnv), action[0],action[1],action[2],action[3],action[4],action[5],action[6],action[7],action[8],action[9],action[10])
+        output = "step: {:4.0f}, Oxygen Deficit: {:6.0f}, Mults:{:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f}".format(self.current_step, SIM.getOxydef(self.ptrToEnv), action[0],action[1],action[2],action[3],action[4],action[5],action[6],action[7],action[8],action[9],action[10])
         if mode == 'human' or mode == 'console':
             print(output, end="\r")
     # Render the environment to the screen
