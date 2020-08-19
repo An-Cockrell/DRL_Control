@@ -35,7 +35,7 @@ def actor_network(obs_size, action_size):
     num_hidden2 = 121
     input = tf.keras.layers.Input(shape=obs_size)
 
-    hidden = layers.Dense(num_hidden1, activation="selu",kernel_initializer='random_normal')(input)
+    hidden = layers.Dense(num_hidden1, activation="linear",kernel_initializer='random_normal')(input)
     hidden = layers.BatchNormalization()(hidden)
     hidden = layers.Dense(num_hidden2, activation="tanh",kernel_initializer='random_normal')(hidden)
     # hidden = layers.BatchNormalization()(hidden)
@@ -77,7 +77,7 @@ def critic_network(obs_size, action_size):
     return model
 
 BUFFER_SIZE = 1000000      # replay buffer size
-BATCH_SIZE = 100           # minibatch size
+BATCH_SIZE = 1000           # minibatch size
 GAMMA = 0.99               # discount factor
 TAU = 0.001                # for soft update of target parameters
 LR_ACTOR = 0.0001          # learning rate of the actor

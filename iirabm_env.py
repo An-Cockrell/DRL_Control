@@ -28,7 +28,7 @@ MAX_OXYDEF = 8160
 MAX_STEPS = 3500
 NUM_CYTOKINES = 11
 NUM_OBSERVTAIONS = 5
-OBS_VEC_SHAPE = NUM_CYTOKINES*(NUM_OBSERVTAIONS)
+OBS_VEC_SHAPE = NUM_CYTOKINES*((NUM_OBSERVTAIONS*2)-1)
 
 all_signals_max = np.array([9048.283, 8969.218, 56.453243, 24.432032, 203.75848, 194.54462, 59.198627, 93.91482, 986.0, 465., 133., 227., 176., 432.44122, 425.84256, 79.20918, 220.06897, 217.0821, 11.526534, 43.950306])
 
@@ -70,7 +70,9 @@ class Iirabm_Environment(gym.Env):
             shape=(NUM_CYTOKINES,),
             dtype=np.float32)
 
-        obs_space_high = np.array([])
+        obs_space_high = np.array([10,10,10,10,10,10,10,10,10,10,10])
+        for i in range(NUM_OBSERVTAIONS-2):
+            obs_space_high = np.hstack((obs_space_high, np.array([10,10,10,10,10,10,10,10,10,10,10])))
         for i in range(NUM_OBSERVTAIONS):
             obs_space_high = np.hstack((obs_space_high,all_signals_max[[2,3,4,5,12,13,14,15,16,17,18]]))
         print(obs_space_high.shape)
@@ -128,11 +130,11 @@ class Iirabm_Environment(gym.Env):
         return action_vector
 
     def next_observation(self):
-        frame = self.cytokine_history[:,self.current_step-NUM_OBSERVTAIONS:self.current_step]
-        frame = frame.flatten()
-        current_mults = self.cytokine_mults
-        observation = np.append(current_mults,frame)
-        observation = frame
+        cytokines = self.cytokine_history[:,self.current_step-NUM_OBSERVTAIONS:self.current_step]
+        cytokines = cytokines.flatten()
+        actions = self.action_history[:,self.current_step-NUM_OBSERVTAIONS:self.current_step-1]
+        actions = actions.flatten()
+        observation = np.append(actions,cytokines)
         return observation
 
     def calculate_done(self):
@@ -148,7 +150,7 @@ class Iirabm_Environment(gym.Env):
     def calculate_reward(self):
         return_reward = 0
         if self.current_step > 10:
-            slope_observation_range = 10
+            slope_observation_range = NUM_OBSERVTAIONS
             return_reward, intercept, r_value, p_value, std_err = stats.linregress(range(slope_observation_range),self.oxydef_history[self.current_step-slope_observation_range:self.current_step])
             return_reward *= -1
         return_reward += .1 #bonus for staying alive per step
