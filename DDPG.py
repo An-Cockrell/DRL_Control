@@ -315,6 +315,7 @@ def ddpg(episodes, step, pretrained, noise):
                 print('Reward: {} | Episode: {} | Steps: {}                                                                   '.format(score, i, env.current_step))
                 print("LOWS:  " + str(output_range[0,:]))
                 print("HIGHS: " + str(output_range[1,:]))
+                print()
                 break
 
         reward_list.append(score)
