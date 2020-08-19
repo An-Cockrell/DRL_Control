@@ -14,6 +14,8 @@ from tensorflow.keras import layers
 from tensorflow.python.framework import ops
 from tensorflow.keras import backend as K
 
+import matplotlib.pyplot as plt
+
 
 def output_activation(x):
     # function to scale tanh activation to be 1-10 if x>0 or 0-1 if x < 0
@@ -267,7 +269,7 @@ class ReplayBuffer:
 
 
 
-env = Iirabm_Environment(rendering="human")
+env = Iirabm_Environment(rendering="console")
 
 state_dim = env.observation_space.shape[0]
 action_dim = env.action_space.shape[0]
@@ -317,7 +319,7 @@ def ddpg(episodes, step, pretrained, noise):
 
         reward_list.append(score)
 
-        if score >= 270:
+        if score >= 2000:
             print('Task Solved')
             agent.actor_local.save_weights('checkpoint_actor.pth')
             agent.critic_local.save_weights('checkpoint_critic.pth')
