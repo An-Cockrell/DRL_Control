@@ -319,7 +319,7 @@ def ddpg(episodes, step, pretrained, noise):
 
         reward_list.append(score)
 
-        if score >= 2000:
+        if score >= 3500:
             print('Task Solved')
             agent.actor_local.save_weights('checkpoint_actor.pth')
             agent.critic_local.save_weights('checkpoint_critic.pth')
