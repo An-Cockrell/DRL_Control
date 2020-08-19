@@ -269,7 +269,7 @@ class ReplayBuffer:
 
 
 
-env = Iirabm_Environment(rendering="console")
+env = Iirabm_Environment(rendering="human")
 
 state_dim = env.observation_space.shape[0]
 action_dim = env.action_space.shape[0]
@@ -336,7 +336,7 @@ def ddpg(episodes, step, pretrained, noise):
     return reward_list
 
 
-scores = ddpg(episodes=100, step=2000, pretrained=False, noise=True)
+scores = ddpg(episodes=3000, step=2000, pretrained=False, noise=True)
 
 fig = plt.figure()
 plt.plot(np.arange(1, len(scores) + 1), scores)
