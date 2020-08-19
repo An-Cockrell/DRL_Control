@@ -12,12 +12,13 @@ import tensorflow as tf
 import tensorflow_addons as tfa
 from tensorflow.keras import layers
 from tensorflow.python.framework import ops
+from tensorflow.keras import backend as K
 
 
 def output_activation(x):
     # function to scale tanh activation to be 1-10 if x>0 or 0-1 if x < 0
     # return tf.cond(x >= 0, lambda: tf.math.tanh(x+0.1)*10, lambda: tf.math.tanh(x) + 1)
-    out = tf.math.sigmoid(x)*10
+    out = K.switch(x >= 0, tf.math.tanh(x+0.1)*10, tf.math.tanh(x) + 1)
     return tf.clip_by_value(out, .001, 10)
     # out = None
     # for i, element in truth_tensor:
@@ -34,12 +35,12 @@ def actor_network(obs_size, action_size):
     num_hidden2 = 121
     input = tf.keras.layers.Input(shape=obs_size)
 
-    hidden = layers.Dense(num_hidden1, activation="selu")(input)
+    hidden = layers.Dense(num_hidden1, activation="selu",kernel_initializer='random_normal')(input)
     hidden = layers.BatchNormalization()(hidden)
-    hidden = layers.Dense(num_hidden2, activation="selu")(hidden)
-    hidden = layers.BatchNormalization()(hidden)
+    hidden = layers.Dense(num_hidden2, activation="tanh",kernel_initializer='random_normal')(hidden)
+    # hidden = layers.BatchNormalization()(hidden)
 
-    output = layers.Dense(action_size, activation=output_activation)(hidden)
+    output = layers.Dense(action_size, activation=output_activation,kernel_initializer='random_normal')(hidden)
 
     model = tf.keras.Model(input, output)
     return model
@@ -132,6 +133,8 @@ class Agent():
         """Returns actions for given state as per current policy."""
 
         action = self.actor_local(state)
+        # print(action)
+        # print(state)
 
         if add_noise:
             action += self.noise.sample()
@@ -286,11 +289,20 @@ def ddpg(episodes, step, pretrained, noise):
 
         state = env.reset()
         score = 0
-
+        output_range = None
         while True:
             t = env.current_step
             state = tf.expand_dims(tf.convert_to_tensor(state), 0)
             action = agent.act(state, noise)
+            if output_range is not None:
+                action_np = action.numpy()
+                for j in range(action_np.shape[1]):
+                    if output_range[0,j] > action_np[:,j]:
+                        output_range[0,j] = action_np[:,j]
+                    elif output_range[1,j] < action_np[:,j]:
+                        output_range[1,j] = action_np[:,j]
+            else:
+                output_range = np.vstack([action.numpy(), action.numpy()])
             next_state, reward, done, info = env.step(action[0])
             # print(reward)
             # agent.step(state, action, reward, next_state, done)
@@ -299,6 +311,8 @@ def ddpg(episodes, step, pretrained, noise):
 
             if done:
                 print('Reward: {} | Episode: {} | Steps: {}                                                                   '.format(score, i, env.current_step))
+                print("LOWS:  " + str(output_range[0,:]))
+                print("HIGHS: " + str(output_range[1,:]))
                 break
 
         reward_list.append(score)
