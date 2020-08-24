@@ -26,9 +26,9 @@ globalBG = None
 
 MAX_OXYDEF = 8160
 MAX_STEPS = 3500
-NUM_CYTOKINES = 11
-NUM_OBSERVTAIONS = 5
-OBS_VEC_SHAPE = NUM_CYTOKINES*((NUM_OBSERVTAIONS*2)-1)
+NUM_CYTOKINES_CONTROLLED = 11
+NUM_OBSERVTAIONS = 50
+# OBS_VEC_SHAPE = NUM_CYTOKINES*((NUM_OBSERVTAIONS*2)-1)
 
 all_signals_max = np.array([9048.283, 8969.218, 56.453243, 24.432032, 203.75848, 194.54462, 59.198627, 93.91482, 986.0, 465., 133., 227., 176., 432.44122, 425.84256, 79.20918, 220.06897, 217.0821, 11.526534, 43.950306])
 
@@ -67,19 +67,19 @@ class Iirabm_Environment(gym.Env):
         self.action_space = gym.spaces.Box(
             low=.001,
             high=10,
-            shape=(NUM_CYTOKINES,),
+            shape=(NUM_CYTOKINES_CONTROLLED,),
             dtype=np.float32)
 
         obs_space_high = np.array([10,10,10,10,10,10,10,10,10,10,10])
         for i in range(NUM_OBSERVTAIONS-2):
             obs_space_high = np.hstack((obs_space_high, np.array([10,10,10,10,10,10,10,10,10,10,10])))
         for i in range(NUM_OBSERVTAIONS):
-            obs_space_high = np.hstack((obs_space_high,all_signals_max[[2,3,4,5,12,13,14,15,16,17,18]]))
+            obs_space_high = np.hstack((obs_space_high,all_signals_max[[0,2,3,4,5,12,13,14,15,16,17,18]]))
         print(obs_space_high.shape)
         self.observation_space = gym.spaces.Box(
             low=0,
             high=obs_space_high,
-            shape=(OBS_VEC_SHAPE,),
+            shape=obs_space_high.shape,
             dtype=np.float32)
 
         if self.rendering == "human":
@@ -98,7 +98,7 @@ class Iirabm_Environment(gym.Env):
     # Execute one time step within the environment
 
         action = self.take_action(action)
-        self.cytokine_history = SIM.getAllSignalsReturn(self.ptrToEnv)[[2,3,4,5,12,13,14,15,16,17,18],:]
+        self.cytokine_history = SIM.getAllSignalsReturn(self.ptrToEnv)[[0,2,3,4,5,12,13,14,15,16,17,18],:]
         self.oxydef_history = SIM.getAllSignalsReturn(self.ptrToEnv)[0,:]
         self.current_step = SIM.getSimulationStep(self.ptrToEnv)
         # print("step: " + str(self.current_step) + ", Oxygen Deficit: " + str(np.round(SIM.getOxydef(self.ptrToEnv),0)) + ", Mults: " + str(np.round(action,2)),end="             \r")
@@ -153,7 +153,7 @@ class Iirabm_Environment(gym.Env):
             slope_observation_range = NUM_OBSERVTAIONS
             return_reward, intercept, r_value, p_value, std_err = stats.linregress(range(slope_observation_range),self.oxydef_history[self.current_step-slope_observation_range:self.current_step])
             return_reward *= -1
-        return_reward += .1 #bonus for staying alive per step
+        return_reward += 1 #bonus for staying alive per step
         if self.oxydef_history[self.current_step] < 2750:
             return_reward += 2
             if self.calculate_done():
@@ -173,7 +173,7 @@ class Iirabm_Environment(gym.Env):
         self.ptrToEnv = createIIRABM()
         for i in range(NUM_OBSERVTAIONS+5):
             SIM.singleStep(self.ptrToEnv)
-        self.cytokine_history = SIM.getAllSignalsReturn(self.ptrToEnv)[[2,3,4,5,12,13,14,15,16,17,18],:]
+        self.cytokine_history = SIM.getAllSignalsReturn(self.ptrToEnv)[[0,2,3,4,5,12,13,14,15,16,17,18],:]
         self.oxydef_history = SIM.getAllSignalsReturn(self.ptrToEnv)[0,:]
         self.current_step = SIM.getSimulationStep(self.ptrToEnv)
 

@@ -33,8 +33,8 @@ def output_activation(x):
     # return out
 
 def actor_network(obs_size, action_size):
-    num_hidden1 = 242
-    num_hidden2 = 121
+    num_hidden1 = 484
+    num_hidden2 = 242
     input = tf.keras.layers.Input(shape=obs_size)
 
     hidden = layers.Dense(num_hidden1, activation="linear",kernel_initializer='random_normal')(input)
@@ -320,7 +320,7 @@ def ddpg(episodes, step, pretrained, noise):
 
         reward_list.append(score)
 
-        if score >= 3500:
+        if np.mean(reward_list[-20:]) >= 3500:
             print('Task Solved')
             agent.actor_local.save_weights('checkpoint_actor.pth')
             agent.critic_local.save_weights('checkpoint_critic.pth')
