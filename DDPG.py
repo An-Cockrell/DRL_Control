@@ -1,4 +1,4 @@
-`# https://github.com/shivaverma/OpenAIGym/tree/master/bipedal-walker/ddpg-torch
+# https://github.com/shivaverma/OpenAIGym/tree/master/bipedal-walker/ddpg-torch
 
 import numpy as np
 import copy
@@ -334,7 +334,7 @@ def ddpg(episodes, step, pretrained, noise):
                 print("HIGHS: {:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f}".format(*output_range[1,:]))
 
                 print()
-                if i > 10 and random_explore:
+                if i >= 10 and random_explore:
                     random_explore = False
                 break
 
@@ -373,4 +373,3 @@ plt.plot(np.arange(1, len(scores) + 1), scores)
 plt.ylabel('Score')
 plt.xlabel('Episode #')
 plt.show()
-`
