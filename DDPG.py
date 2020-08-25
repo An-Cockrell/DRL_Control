@@ -114,13 +114,14 @@ class Agent():
         # Replay memory
         self.memory = ReplayBuffer(action_size, BUFFER_SIZE, BATCH_SIZE)
 
-    def step(self, state, action, reward, next_state, done):
+    def step(self, state, action, reward, next_state, done, building_buffer=False):
         """Save experience in replay memory, and use random sample from buffer to learn."""
         # Save experience / reward
         self.memory.add(state, action, reward, next_state, done)
 
         # Learn, if enough samples are available in memory
-        if len(self.memory) > BATCH_SIZE:
+
+        if len(self.memory) > BATCH_SIZE and  not building_buffer:
             experiences = self.memory.sample()
             self.learn(experiences, GAMMA)
 
@@ -322,13 +323,13 @@ def ddpg(episodes, step, pretrained, noise):
                 output_range = np.squeeze(output_range)
             next_state, reward, done, info = env.step(action[0])
             # print(reward)
-            agent.step(state, action, reward, next_state, done)
+            agent.step(state, action, reward, next_state, done, building_buffer=random_explore)
             state = next_state.squeeze()
             score += reward
 
             if done:
                 if random_explore:
-                    print("RANDOMLY EXPLORING")
+                    print("RANDOMLY EXPLORING                                                                                     ")
                 print('Reward: {} | Episode: {} | Steps: {}                                                                   '.format(score, i, env.current_step))
                 print("LOWS:  {:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f}".format(*output_range[0,:]))
                 print("HIGHS: {:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f}".format(*output_range[1,:]))
