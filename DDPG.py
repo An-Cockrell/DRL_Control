@@ -22,15 +22,7 @@ def output_activation(x):
     # return tf.cond(x >= 0, lambda: tf.math.tanh(x+0.1)*10, lambda: tf.math.tanh(x) + 1)
     out = K.switch(x >= 0, tf.math.tanh(x+0.1)*10, tf.math.tanh(x) + 1)
     return tf.clip_by_value(out, .001, 10)
-    # out = None
-    # for i, element in truth_tensor:
-    #     temp = lambda: tf.math.tanh(x[i]+0.1)*10, lambda: tf.math.tanh(x[i]) + 1
-    #     if out is not None:
-    #         out = tf.concat([out, temp], axis=1)
-    #     else:
-    #         out = temp
-    # print(out)
-    # return out
+
 
 def actor_network(obs_size, action_size):
     num_hidden1 = 484
@@ -39,13 +31,14 @@ def actor_network(obs_size, action_size):
 
     hidden = layers.Dense(num_hidden1, activation="linear",kernel_initializer='random_normal')(input)
     hidden = layers.BatchNormalization()(hidden)
-    hidden = layers.Dense(num_hidden2, activation="tanh",kernel_initializer='random_normal')(hidden)
-    # hidden = layers.BatchNormalization()(hidden)
+    hidden = layers.Dense(num_hidden2, activation="linear",kernel_initializer='random_normal')(hidden)
+    hidden = layers.BatchNormalization()(hidden)
 
-    output = layers.Dense(action_size, activation=output_activation,kernel_initializer='random_normal')(hidden)
+    output = layers.Dense(action_size, activation='tanh',kernel_initializer='random_normal')(hidden)
 
     model = tf.keras.Model(input, output)
     return model
+
 
 def critic_network(obs_size, action_size):
     state_hidden = 300
@@ -79,7 +72,7 @@ def critic_network(obs_size, action_size):
     return model
 
 BUFFER_SIZE = 1000000      # replay buffer size
-BATCH_SIZE = 1000           # minibatch size
+BATCH_SIZE = 64        # minibatch size
 GAMMA = 0.99               # discount factor
 TAU = 0.001                # for soft update of target parameters
 LR_ACTOR = 0.0001          # learning rate of the actor
@@ -116,7 +109,7 @@ class Agent():
         self.critic_optimizer = tfa.optimizers.AdamW(learning_rate=LR_CRITIC, weight_decay=WEIGHT_DECAY)
 
         # Noise process
-        self.noise = OUNoise(action_size)
+        self.noise = GaussianNoiseProcess(.1, action_size)
 
         # Replay memory
         self.memory = ReplayBuffer(action_size, BUFFER_SIZE, BATCH_SIZE)
@@ -135,12 +128,11 @@ class Agent():
         """Returns actions for given state as per current policy."""
 
         action = self.actor_local(state)
-        # print(action)
-        # print(state)
-
         if add_noise:
             action += self.noise.sample()
-        action = tf.clip_by_value(action, .001, 10)
+
+        # print(action)
+        # print(state)
         return action
 
     def reset(self):
@@ -162,27 +154,27 @@ class Agent():
         # ---------------------------- update critic ---------------------------- #
         # Get predicted next-state actions and Q values from target models
         with tf.GradientTape() as tape:
-            actions_next = self.actor_target(next_state)
-            Q_targets_next = self.critic_target(next_states, actions_next)
+            actions_next = self.actor_target(next_states)
+            Q_targets_next = self.critic_target([next_states, actions_next])
             # Compute Q targets for current states (y_i)
             Q_targets = rewards + (gamma * Q_targets_next * (1 - dones))
             # Compute critic loss
-            Q_expected = self.critic_local(states, actions)
+            Q_expected = self.critic_local([states, actions])
             critic_loss = tf.math.reduce_mean(tf.math.square(Q_expected, Q_targets))
 
         # Minimize the loss
         critic_grad = tape.gradient(critic_loss, self.critic_local.trainable_variables)
-        critic_optimizer.apply_gradients(zip(critic_grad, critic_local.trainable_variables))
+        self.critic_optimizer.apply_gradients(zip(critic_grad, self.critic_local.trainable_variables))
 
         # ---------------------------- update actor ---------------------------- #
         # Compute actor loss
         with tf.GradientTape() as tape:
             actions_pred = self.actor_local(states)
-            actor_loss = -self.critic_local(states, actions_pred).mean()
+            actor_loss = -1 * tf.math.reduce_mean(self.critic_local([states, actions_pred]))
         # Minimize the loss
-        actor_grad = tape.gradient(actor_loss,actor_local.trainable_variables)
-        actor_optimizer.apply_gradients(
-            zip(actor_grad, actor_local.trainable_variables))
+        actor_grad = tape.gradient(actor_loss,self. actor_local.trainable_variables)
+        self.actor_optimizer.apply_gradients(
+            zip(actor_grad, self.actor_local.trainable_variables))
 
         # ----------------------- update target networks ----------------------- #
         self.soft_update(self.critic_local, self.critic_target, TAU)
@@ -198,17 +190,47 @@ class Agent():
             tau (float): interpolation parameter
         """
         new_weights = []
-        target_variables = self.target_model.weights
+        target_variables = target_model.weights
         for i, variable in enumerate(local_model.weights):
             new_weights.append(variable * TAU + target_variables[i] * (1 - TAU))
 
         target_model.set_weights(new_weights)
 
 
+    def set_noise_process(self, np):
+        self.noise_process = np
+
+    def update_exploration(self):
+        if self.episode % 1000 == 0 and self.episode > 0:
+            self.noise_magnitude /= 10
+            self.set_noise_process(GaussianNoiseProcess(self.noise_magnitude))
+            print("Reducing noise to {}".format(self.noise_magnitude))
+
+    def suspend_exploration(self):
+        self.set_noise_process(GaussianNoiseProcess(0))
+
+    def restore_exploration(self):
+        self.set_noise_process(GaussianNoiseProcess(self.noise_magnitude))
+
+"""
+Noises processes
+
+    These define how noise is added to the training policy to encourage exploration
+"""
+class GaussianNoiseProcess:
+    """
+    Simply adds noise of N(0, std^2)
+    """
+    def __init__(self, std, shape):
+        self.std = std
+        self.shape = shape
+    def sample(self):
+        return np.random.normal(np.zeros(self.shape), self.std)
+
 class OUNoise:
     """Ornstein-Uhlenbeck process."""
 
-    def __init__(self, size, mu=0., theta=0.4, sigma=.3):
+    def __init__(self, size, mu=0., theta=0.4, sigma=.2):
         """Initialize parameters and noise process."""
         self.mu = mu * np.ones(size)
         self.theta = theta
@@ -222,7 +244,7 @@ class OUNoise:
     def sample(self):
         """Update internal state and return it as a noise sample."""
         x = self.state
-        dx = self.theta * (self.mu - x) + self.sigma * np.array([random.random() for i in range(len(x))])
+        dx = self.theta * (self.mu - x) + self.sigma * np.array([random.uniform(-1,1) for i in range(len(x))])
         self.state = x + dx
         return self.state
 
@@ -251,11 +273,11 @@ class ReplayBuffer:
         """Randomly sample a batch of experiences from memory."""
         experiences = random.sample(self.memory, k=self.batch_size)
 
-        states = tf.convert_to_tensor(np.vstack([e.state for e in experiences if e is not None]))
-        actions = tf.convert_to_tensor(np.vstack([e.action for e in experiences if e is not None]))
-        rewards = tf.convert_to_tensor(np.vstack([e.reward for e in experiences if e is not None]))
-        next_states = tf.convert_to_tensor(np.vstack([e.next_state for e in experiences if e is not None]))
-        dones = tf.convert_to_tensor(np.vstack([e.done for e in experiences if e is not None]).astype(np.uint8))
+        states = tf.convert_to_tensor(np.vstack([e.state for e in experiences if e is not None]).astype(np.float32))
+        actions = tf.convert_to_tensor(np.vstack([e.action for e in experiences if e is not None]).astype(np.float32))
+        rewards = tf.convert_to_tensor(np.vstack([e.reward for e in experiences if e is not None]).astype(np.float32))
+        next_states = tf.convert_to_tensor(np.vstack([e.next_state for e in experiences if e is not None]).astype(np.float32))
+        dones = tf.convert_to_tensor(np.vstack([e.done for e in experiences if e is not None]).astype(np.float32))
 
         return states, actions, rewards, next_states, dones
 
@@ -286,6 +308,8 @@ def ddpg(episodes, step, pretrained, noise):
         agent.critic_target.load_weights('1checkpoint_critic.pth')
 
     reward_list = []
+    random_explore = True
+    cytoMax = np.asarray([0,0,0,0,0,0,0,0,0,0,0,0])
 
     for i in range(episodes):
 
@@ -295,32 +319,39 @@ def ddpg(episodes, step, pretrained, noise):
         while True:
             t = env.current_step
             state = tf.expand_dims(tf.convert_to_tensor(state), 0)
-            action = agent.act(state, noise)
-            if output_range is not None:
-                action_np = action.numpy()
-                for j in range(action_np.shape[1]):
-                    if output_range[0,j] > action_np[:,j]:
-                        output_range[0,j] = action_np[:,j]
-                    elif output_range[1,j] < action_np[:,j]:
-                        output_range[1,j] = action_np[:,j]
+            if random_explore:
+                action = env.action_space.sample()
+                action = tf.expand_dims(action, axis=0)
             else:
-                output_range = np.vstack([action.numpy(), action.numpy()])
+                action = agent.act(state, noise)
+            if output_range is not None:
+                action_np = env.cytokine_mults
+                for j in range(action_np.shape[0]):
+                    if output_range[0,j] > action_np[j]:
+                        output_range[0,j] = action_np[j]
+                    elif output_range[1,j] < action_np[j]:
+                        output_range[1,j] = action_np[j]
+            else:
+                output_range = np.stack([env.cytokine_mults, env.cytokine_mults])
+                output_range = np.squeeze(output_range)
             next_state, reward, done, info = env.step(action[0])
             # print(reward)
-            # agent.step(state, action, reward, next_state, done)
+            agent.step(state, action, reward, next_state, done)
             state = next_state.squeeze()
             score += reward
 
             if done:
                 print('Reward: {} | Episode: {} | Steps: {}                                                                   '.format(score, i, env.current_step))
-                print("LOWS:  " + str(output_range[0,:]))
-                print("HIGHS: " + str(output_range[1,:]))
+                print("LOWS:  {:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f}".format(*output_range[0,:]))
+                print("HIGHS: {:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f}".format(*output_range[1,:]))
                 print()
+                if i > 10 and random_explore:
+                    random_explore = False
                 break
 
         reward_list.append(score)
 
-        if np.mean(reward_list[-20:]) >= 3500:
+        if np.mean(reward_list[-20:]) >= 5500:
             print('Task Solved')
             agent.actor_local.save_weights('checkpoint_actor.pth')
             agent.critic_local.save_weights('checkpoint_critic.pth')

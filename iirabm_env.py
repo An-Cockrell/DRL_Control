@@ -27,10 +27,9 @@ globalBG = None
 MAX_OXYDEF = 8160
 MAX_STEPS = 3500
 NUM_CYTOKINES_CONTROLLED = 11
-NUM_OBSERVTAIONS = 50
+NUM_OBSERVTAIONS = 1
 # OBS_VEC_SHAPE = NUM_CYTOKINES*((NUM_OBSERVTAIONS*2)-1)
-
-all_signals_max = np.array([9048.283, 8969.218, 56.453243, 24.432032, 203.75848, 194.54462, 59.198627, 93.91482, 986.0, 465., 133., 227., 176., 432.44122, 425.84256, 79.20918, 220.06897, 217.0821, 11.526534, 43.950306])
+all_signals_max = np.array([8164,  250,  118, 1675,  880,  108, 4027,  730, 1232, 2204,   87,   83])
 
 
 SIM = wrapper_setup.setUpWrapper()
@@ -57,7 +56,7 @@ class Iirabm_Environment(gym.Env):
 
         self.ptrToEnv = None
         self.reward_range = (-100,100)
-        self.cytokine_history = np.zeros((11,10000))
+        self.cytokine_history = np.zeros((12,10000))
         self.cytokine_mults = np.zeros((11,1))
         self.oxydef_history = np.zeros((1,10000))
         self.action_history = np.zeros((11,10000))
@@ -65,16 +64,16 @@ class Iirabm_Environment(gym.Env):
         self.rendering = rendering
         # Actions of the format Buy x%, Sell x%, Hold, etc.
         self.action_space = gym.spaces.Box(
-            low=.001,
-            high=10,
+            low=-1,
+            high=1,
             shape=(NUM_CYTOKINES_CONTROLLED,),
             dtype=np.float32)
 
-        obs_space_high = np.array([10,10,10,10,10,10,10,10,10,10,10])
-        for i in range(NUM_OBSERVTAIONS-2):
-            obs_space_high = np.hstack((obs_space_high, np.array([10,10,10,10,10,10,10,10,10,10,10])))
-        for i in range(NUM_OBSERVTAIONS):
-            obs_space_high = np.hstack((obs_space_high,all_signals_max[[0,2,3,4,5,12,13,14,15,16,17,18]]))
+        obs_space_high = np.array(all_signals_max)
+        # for i in range(NUM_OBSERVTAIONS-1):
+        #     obs_space_high = np.hstack((obs_space_high, np.array([10,10,10,10,10,10,10,10,10,10,10])))
+        # for i in range(NUM_OBSERVTAIONS):
+        #     obs_space_high = np.hstack((obs_space_high,all_signals_max[[0,2,3,4,5,12,13,14,15,16,17,18]]))
         print(obs_space_high.shape)
         self.observation_space = gym.spaces.Box(
             low=0,
@@ -110,20 +109,31 @@ class Iirabm_Environment(gym.Env):
 
     def take_action(self,action_vector):
         action_vector = np.squeeze(action_vector)
-        self.action_history[:,self.current_step] = action_vector
-        self.cytokine_mults = action_vector
+        action = np.zeros(action_vector.shape)
+        for i in range(action_vector.shape[0]):
+            act = action_vector[i]
+            if act >= 0:
+                action[i] = (act*9)+1
+            else:
+                action[i] = act + 1.001
+        action = np.clip(action, .001, 10)
+        # action = tf.keras.backend.switch(action_vector >= 0, (action_vector*9)+1, action_vector + 1.0001)
+        # action = tf.clip_by_value(action, .001, 10)
 
-        SIM.setTNFmult(self.ptrToEnv, action_vector[0])
-        SIM.setsTNFrmult(self.ptrToEnv, action_vector[1])
-        SIM.setIL10mult(self.ptrToEnv, action_vector[2])
-        SIM.setGCSFmult(self.ptrToEnv, action_vector[3])
-        SIM.setIFNgmult(self.ptrToEnv, action_vector[4])
-        SIM.setPAFmult(self.ptrToEnv, action_vector[5])
-        SIM.setIL1mult(self.ptrToEnv, action_vector[6])
-        SIM.setIL4mult(self.ptrToEnv, action_vector[7])
-        SIM.setIL8mult(self.ptrToEnv, action_vector[8])
-        SIM.setIL12mult(self.ptrToEnv, action_vector[9])
-        SIM.setsIL1rmult(self.ptrToEnv, action_vector[10])
+        self.action_history[:,self.current_step] = action_vector
+        self.cytokine_mults = action
+
+        SIM.setTNFmult(self.ptrToEnv, action[0])
+        SIM.setsTNFrmult(self.ptrToEnv, action[1])
+        SIM.setIL10mult(self.ptrToEnv, action[2])
+        SIM.setGCSFmult(self.ptrToEnv, action[3])
+        SIM.setIFNgmult(self.ptrToEnv, action[4])
+        SIM.setPAFmult(self.ptrToEnv, action[5])
+        SIM.setIL1mult(self.ptrToEnv, action[6])
+        SIM.setIL4mult(self.ptrToEnv, action[7])
+        SIM.setIL8mult(self.ptrToEnv, action[8])
+        SIM.setIL12mult(self.ptrToEnv, action[9])
+        SIM.setsIL1rmult(self.ptrToEnv, action[10])
 
         SIM.singleStep(self.ptrToEnv)
 
@@ -131,10 +141,11 @@ class Iirabm_Environment(gym.Env):
 
     def next_observation(self):
         cytokines = self.cytokine_history[:,self.current_step-NUM_OBSERVTAIONS:self.current_step]
-        cytokines = cytokines.flatten()
-        actions = self.action_history[:,self.current_step-NUM_OBSERVTAIONS:self.current_step-1]
-        actions = actions.flatten()
-        observation = np.append(actions,cytokines)
+        observation = cytokines
+        for i in range(observation.shape[0]):
+            observation[i,:] = observation[i,:] / self.observation_space.high[i]
+        observation = np.squeeze(observation)
+
         return observation
 
     def calculate_done(self):
@@ -149,10 +160,10 @@ class Iirabm_Environment(gym.Env):
 
     def calculate_reward(self):
         return_reward = 0
-        if self.current_step > 10:
-            slope_observation_range = NUM_OBSERVTAIONS
-            return_reward, intercept, r_value, p_value, std_err = stats.linregress(range(slope_observation_range),self.oxydef_history[self.current_step-slope_observation_range:self.current_step])
-            return_reward *= -1
+        if self.current_step > 100:
+            # negative change from last step ie oxydef goes down reward goes up
+            return_reward = self.oxydef_history[self.current_step-1] - self.oxydef_history[self.current_step]
+
         return_reward += 1 #bonus for staying alive per step
         if self.oxydef_history[self.current_step] < 2750:
             return_reward += 2
@@ -184,7 +195,7 @@ class Iirabm_Environment(gym.Env):
         if action is None:
             action = self.action_history[:,self.current_step-1]
         np.set_printoptions(precision=3, suppress=True)
-        output = "step: {:4.0f}, Oxygen Deficit: {:6.0f}, Mults:{:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f}".format(self.current_step, SIM.getOxydef(self.ptrToEnv), action[0],action[1],action[2],action[3],action[4],action[5],action[6],action[7],action[8],action[9],action[10])
+        output = "step: {:4.0f}, Oxygen Deficit: {:6.0f}, Mults:{:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f}".format(self.current_step, SIM.getOxydef(self.ptrToEnv),*self.cytokine_mults)
         if mode == 'human' or mode == 'console':
             print(output, end="\r")
     # Render the environment to the screen
