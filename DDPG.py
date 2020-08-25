@@ -285,20 +285,6 @@ class ReplayBuffer:
         """Return the current size of internal memory."""
         return len(self.memory)
 
-
-
-# TRAINING TIME
-
-
-
-env = Iirabm_Environment(rendering="human")
-
-state_dim = env.observation_space.shape[0]
-action_dim = env.action_space.shape[0]
-
-agent = Agent(state_size=state_dim, action_size=action_dim)
-
-
 def ddpg(episodes, step, pretrained, noise):
 
     if pretrained:
@@ -366,6 +352,16 @@ def ddpg(episodes, step, pretrained, noise):
     print('Training saved')
     return reward_list
 
+# TRAINING TIME
+
+
+
+env = Iirabm_Environment(rendering="console")
+
+state_dim = env.observation_space.shape[0]
+action_dim = env.action_space.shape[0]
+
+agent = Agent(state_size=state_dim, action_size=action_dim)
 
 scores = ddpg(episodes=3000, step=2000, pretrained=False, noise=True)
 
