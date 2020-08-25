@@ -327,9 +327,12 @@ def ddpg(episodes, step, pretrained, noise):
             score += reward
 
             if done:
+                if random_explore:
+                    print("RANDOMLY EXPLORING")
                 print('Reward: {} | Episode: {} | Steps: {}                                                                   '.format(score, i, env.current_step))
                 print("LOWS:  {:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f}".format(*output_range[0,:]))
                 print("HIGHS: {:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f}".format(*output_range[1,:]))
+
                 print()
                 if i > 10 and random_explore:
                     random_explore = False
