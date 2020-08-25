@@ -1,4 +1,4 @@
-# https://github.com/shivaverma/OpenAIGym/tree/master/bipedal-walker/ddpg-torch
+`# https://github.com/shivaverma/OpenAIGym/tree/master/bipedal-walker/ddpg-torch
 
 import numpy as np
 import copy
@@ -114,14 +114,13 @@ class Agent():
         # Replay memory
         self.memory = ReplayBuffer(action_size, BUFFER_SIZE, BATCH_SIZE)
 
-    def step(self, state, action, reward, next_state, done, building_buffer=False):
+    def step(self, state, action, reward, next_state, done):
         """Save experience in replay memory, and use random sample from buffer to learn."""
         # Save experience / reward
         self.memory.add(state, action, reward, next_state, done)
 
         # Learn, if enough samples are available in memory
-
-        if len(self.memory) > BATCH_SIZE and  not building_buffer:
+        if len(self.memory) > BATCH_SIZE:
             experiences = self.memory.sample()
             self.learn(experiences, GAMMA)
 
@@ -323,14 +322,14 @@ def ddpg(episodes, step, pretrained, noise):
                 output_range = np.squeeze(output_range)
             next_state, reward, done, info = env.step(action[0])
             # print(reward)
-            agent.step(state, action, reward, next_state, done, building_buffer=random_explore)
+            agent.step(state, action, reward, next_state, done)
             state = next_state.squeeze()
             score += reward
 
             if done:
                 if random_explore:
                     print("RANDOMLY EXPLORING                                                                                     ")
-                print('Reward: {} | Episode: {} | Steps: {}                                                                   '.format(score, i, env.current_step))
+                print('Reward: {} | Episode: {} | Steps: {}                                                                                   '.format(score, i, env.current_step))
                 print("LOWS:  {:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f}".format(*output_range[0,:]))
                 print("HIGHS: {:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f}".format(*output_range[1,:]))
 
@@ -374,3 +373,4 @@ plt.plot(np.arange(1, len(scores) + 1), scores)
 plt.ylabel('Score')
 plt.xlabel('Episode #')
 plt.show()
+`
