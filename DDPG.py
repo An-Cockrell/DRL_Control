@@ -29,9 +29,9 @@ def actor_network(obs_size, action_size):
     num_hidden2 = 242
     input = tf.keras.layers.Input(shape=obs_size)
 
-    hidden = layers.Dense(num_hidden1, activation="linear",kernel_initializer='random_normal')(input)
+    hidden = layers.Dense(num_hidden1, activation="linear")(input)
     hidden = layers.BatchNormalization()(hidden)
-    hidden = layers.Dense(num_hidden2, activation="linear",kernel_initializer='random_normal')(hidden)
+    hidden = layers.Dense(num_hidden2, activation="linear")(hidden)
     hidden = layers.BatchNormalization()(hidden)
 
     output = layers.Dense(action_size, activation='tanh',kernel_initializer='random_normal')(hidden)
@@ -94,6 +94,8 @@ class Agent():
         self.state_size = state_size
         self.action_size = action_size
 
+        self.episode = 0
+        self.noise_magnitude = .5
         # Actor Network (w/ Target Network)
 
         self.actor_local = actor_network(state_size, action_size)
@@ -109,7 +111,7 @@ class Agent():
         self.critic_optimizer = tfa.optimizers.AdamW(learning_rate=LR_CRITIC, weight_decay=WEIGHT_DECAY)
 
         # Noise process
-        self.noise = GaussianNoiseProcess(.1, action_size)
+        self.noise = GaussianNoiseProcess(self.noise_magnitude, self.action_size)
 
         # Replay memory
         self.memory = ReplayBuffer(action_size, BUFFER_SIZE, BATCH_SIZE)
@@ -138,6 +140,7 @@ class Agent():
 
     def reset(self):
         self.noise.reset()
+        self.episode += 1
 
     def learn(self, experiences, gamma):
         """Update policy and value parameters using given batch of experience tuples.
@@ -202,10 +205,9 @@ class Agent():
         self.noise_process = np
 
     def update_exploration(self):
-        if self.episode % 1000 == 0 and self.episode > 0:
-            self.noise_magnitude /= 10
-            self.set_noise_process(GaussianNoiseProcess(self.noise_magnitude))
-            print("Reducing noise to {}".format(self.noise_magnitude))
+        self.noise_magnitude /= 5
+        self.set_noise_process(GaussianNoiseProcess(self.noise_magnitude, self.action_size))
+        print("Reducing noise to {}".format(self.noise_magnitude))
 
     def suspend_exploration(self):
         self.set_noise_process(GaussianNoiseProcess(0))
@@ -295,7 +297,7 @@ def ddpg(episodes, step, pretrained, noise):
         agent.critic_target.load_weights('1checkpoint_critic.pth')
 
     reward_list = []
-    random_explore = True
+    random_explore = False
     cytoMax = np.asarray([0,0,0,0,0,0,0,0,0,0,0,0])
 
     for i in range(episodes):
@@ -337,11 +339,13 @@ def ddpg(episodes, step, pretrained, noise):
                 print()
                 if i >= 10 and random_explore:
                     random_explore = False
+                if i % 200 == 0 and i > 0:
+                    agent.update_exploration()
                 break
 
         reward_list.append(score)
 
-        if np.mean(reward_list[-20:]) >= 5500:
+        if np.mean(reward_list[-20:]) >= 2000:
             print('Task Solved')
             agent.actor_local.save_weights('checkpoint_actor.pth')
             agent.critic_local.save_weights('checkpoint_critic.pth')
@@ -360,7 +364,7 @@ def ddpg(episodes, step, pretrained, noise):
 
 
 
-env = Iirabm_Environment(rendering="console")
+env = Iirabm_Environment(rendering=None)
 
 state_dim = env.observation_space.shape[0]
 action_dim = env.action_space.shape[0]

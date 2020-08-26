@@ -164,17 +164,17 @@ class Iirabm_Environment(gym.Env):
             # negative change from last step ie oxydef goes down reward goes up
             return_reward = self.oxydef_history[self.current_step-1] - self.oxydef_history[self.current_step]
 
-        return_reward += 1 #bonus for staying alive per step
-        if self.oxydef_history[self.current_step] < 2750:
-            return_reward += 2
-            if self.calculate_done():
-                return_reward += 98
-                # if it lives then total +100 reward
-
-        if self.oxydef_history[self.current_step] > 6000:
-            return_reward -= 0.5
-            if self.calculate_done():
-                return_reward -= 99.5
+        # return_reward += 1 #bonus for staying alive per step
+        # if self.oxydef_history[self.current_step] < 2750:
+        #     return_reward += 2
+        #     if self.calculate_done():
+        #         return_reward += 98
+        #         # if it lives then total +100 reward
+        #
+        # if self.oxydef_history[self.current_step] > 6000:
+        #     return_reward -= 0.5
+        #     if self.calculate_done():
+        #         return_reward -= 99.5
                 # if it dies then total -100 reward
 
         return float(return_reward)
