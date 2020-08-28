@@ -154,32 +154,33 @@ class Agent():
             gamma (float): discount factor
         """
         states, actions, rewards, next_states, dones = experiences
+        #
+        # # ---------------------------- update critic ---------------------------- #
+        # # Get predicted next-state actions and Q values from target models
+        # with tf.GradientTape() as tape:
+        #     actions_next = self.actor_target(next_states)
+        #     Q_targets_next = self.critic_target([next_states, actions_next])
+        #     # Compute Q targets for current states (y_i)
+        #     Q_targets = rewards + (gamma * Q_targets_next * (1 - dones))
+        #     # Compute critic loss
+        #     Q_expected = self.critic_local([states, actions])
+        #     critic_loss = tf.math.reduce_mean(tf.math.square(Q_expected, Q_targets))
+        #
+        # # Minimize the loss
+        # critic_grad = tape.gradient(critic_loss, self.critic_local.trainable_variables)
+        # self.critic_optimizer.apply_gradients(zip(critic_grad, self.critic_local.trainable_variables))
+        #
+        # # ---------------------------- update actor ---------------------------- #
+        # # Compute actor loss
+        # with tf.GradientTape() as tape:
+        #     actions_pred = self.actor_local(states)
+        #     actor_loss = -1 * tf.math.reduce_mean(self.critic_local([states, actions_pred]))
+        # # Minimize the loss
+        # actor_grad = tape.gradient(actor_loss,self. actor_local.trainable_variables)
+        # self.actor_optimizer.apply_gradients(
+        #     zip(actor_grad, self.actor_local.trainable_variables))
 
-        # ---------------------------- update critic ---------------------------- #
-        # Get predicted next-state actions and Q values from target models
-        with tf.GradientTape() as tape:
-            actions_next = self.actor_target(next_states)
-            Q_targets_next = self.critic_target([next_states, actions_next])
-            # Compute Q targets for current states (y_i)
-            Q_targets = rewards + (gamma * Q_targets_next * (1 - dones))
-            # Compute critic loss
-            Q_expected = self.critic_local([states, actions])
-            critic_loss = tf.math.reduce_mean(tf.math.square(Q_expected, Q_targets))
-
-        # Minimize the loss
-        critic_grad = tape.gradient(critic_loss, self.critic_local.trainable_variables)
-        self.critic_optimizer.apply_gradients(zip(critic_grad, self.critic_local.trainable_variables))
-
-        # ---------------------------- update actor ---------------------------- #
-        # Compute actor loss
-        with tf.GradientTape() as tape:
-            actions_pred = self.actor_local(states)
-            actor_loss = -1 * tf.math.reduce_mean(self.critic_local([states, actions_pred]))
-        # Minimize the loss
-        actor_grad = tape.gradient(actor_loss,self. actor_local.trainable_variables)
-        self.actor_optimizer.apply_gradients(
-            zip(actor_grad, self.actor_local.trainable_variables))
-
+        tf_learn(self, states, actions, rewards, next_states, dones, gamma)
         # ----------------------- update target networks ----------------------- #
         self.soft_update(self.critic_local, self.critic_target, TAU)
         self.soft_update(self.actor_local, self.actor_target, TAU)
@@ -200,7 +201,6 @@ class Agent():
 
         target_model.set_weights(new_weights)
 
-
     def set_noise_process(self, np):
         self.noise_process = np
 
@@ -214,6 +214,34 @@ class Agent():
 
     def restore_exploration(self):
         self.set_noise_process(GaussianNoiseProcess(self.noise_magnitude))
+
+@tf.function
+def tf_learn(model, states, actions, rewards, next_states, dones, gamma):
+
+    # ---------------------------- update critic ---------------------------- #
+    # Get predicted next-state actions and Q values from target models
+    with tf.GradientTape() as tape:
+        actions_next = model.actor_target(next_states)
+        Q_targets_next = model.critic_target([next_states, actions_next])
+        # Compute Q targets for current states (y_i)
+        Q_targets = rewards + (gamma * Q_targets_next * (1 - dones))
+        # Compute critic loss
+        Q_expected = model.critic_local([states, actions])
+        critic_loss = tf.math.reduce_mean(tf.math.square(Q_expected-Q_targets))
+
+    # Minimize the loss
+    critic_grad = tape.gradient(critic_loss, model.critic_local.trainable_variables)
+    model.critic_optimizer.apply_gradients(zip(critic_grad, model.critic_local.trainable_variables))
+
+    # ---------------------------- update actor ---------------------------- #
+    # Compute actor loss
+    with tf.GradientTape() as tape:
+        actions_pred = model.actor_local(states)
+        actor_loss = -1 * tf.math.reduce_mean(model.critic_local([states, actions_pred]))
+    # Minimize the loss
+    actor_grad = tape.gradient(actor_loss, model.actor_local.trainable_variables)
+    model.actor_optimizer.apply_gradients(
+        zip(actor_grad, model.actor_local.trainable_variables))
 
 """
 Noises processes
@@ -364,7 +392,7 @@ def ddpg(episodes, step, pretrained, noise):
 
 
 
-env = Iirabm_Environment(rendering=None)
+env = Iirabm_Environment(rendering="console")
 
 state_dim = env.observation_space.shape[0]
 action_dim = env.action_space.shape[0]
