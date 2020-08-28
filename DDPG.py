@@ -123,7 +123,7 @@ class Agent():
 
         # Learn, if enough samples are available in memory
 
-        if len(self.memory) > BATCH_SIZE and  not building_buffer:
+        if len(self.memory) > BATCH_SIZE and not building_buffer:
             experiences = self.memory.sample()
             self.learn(experiences, GAMMA)
 
@@ -353,9 +353,10 @@ def ddpg(episodes, step, pretrained, noise):
                 output_range = np.squeeze(output_range)
             next_state, reward, done, info = env.step(action[0])
             # print(reward)
-            agent.step(state, action, reward, next_state, done, building_buffer=random_explore)
+            if env.current_step > 100: # after the burn in period, then start learning. Also so we dont add step < 100 to memory
+                agent.step(state, action, reward, next_state, done, building_buffer=random_explore)
+                score += reward
             state = next_state.squeeze()
-            score += reward
 
             if done:
                 if random_explore:
@@ -392,7 +393,7 @@ def ddpg(episodes, step, pretrained, noise):
 
 
 
-env = Iirabm_Environment(rendering="console")
+env = Iirabm_Environment(rendering=None)
 
 state_dim = env.observation_space.shape[0]
 action_dim = env.action_space.shape[0]
