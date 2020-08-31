@@ -381,10 +381,10 @@ def ddpg(episodes, step, pretrained, noise):
                     agent.critic_target.save('checkpoint_critic_target.h5')
                     K.clear_session()
                     print("reloading models")
-                    agent.actor_local = keras.load('checkpoint_actor_local.h5')
-                    agent.actor_target = keras.load('checkpoint_actor_target.h5')
-                    agent.critic_local = keras.load('checkpoint_critic_local.h5')
-                    agent.critic_target = keras.load('checkpoint_critic_target.h5')
+                    agent.actor_local = tf.keras.models.load_model('checkpoint_actor_local.h5')
+                    agent.actor_target = tf.keras.models.load_model('checkpoint_actor_target.h5')
+                    agent.critic_local = tf.keras.models.load_model('checkpoint_critic_local.h5')
+                    agent.critic_target = tf.keras.models.load_model('checkpoint_critic_target.h5')
                 break
 
         reward_list.append(score)
