@@ -375,15 +375,15 @@ def ddpg(episodes, step, pretrained, noise):
                     agent.update_exploration()
                 if current_episode % 100 == 0:
                     print("saving model checkpoints and clearing memory")
-                    agent.actor_model.save('checkpoint_actor_model.h5')
                     agent.actor_local.save('checkpoint_actor_local.h5')
-                    agent.critic_model.save('checkpoint_critic_model.h5')
+                    agent.actor_target.save('checkpoint_actor_target.h5')
+                    agent.critic_local.save('checkpoint_critic_local.h5')
                     agent.critic_target.save('checkpoint_critic_target.h5')
                     K.clear_session()
                     print("reloading models")
-                    agent.actor_model = keras.load('checkpoint_actor_model.h5')
+                    agent.actor_local = keras.load('checkpoint_actor_local.h5')
                     agent.actor_target = keras.load('checkpoint_actor_target.h5')
-                    agent.critic_model = keras.load('checkpoint_critic_model.h5')
+                    agent.critic_local = keras.load('checkpoint_critic_local.h5')
                     agent.critic_target = keras.load('checkpoint_critic_target.h5')
                 break
 
@@ -391,8 +391,8 @@ def ddpg(episodes, step, pretrained, noise):
 
         if np.mean(reward_list[-20:]) >= 2000:
             print('Task Solved')
-            agent.actor_local.save('successful_actor_model.h5')
-            agent.critic_local.save('successful_critic_model.h5')
+            agent.actor_local.save('successful_actor_local.h5')
+            agent.critic_local.save('successful_critic_local.h5')
             agent.actor_target.save('successful_actor_target.h5')
             agent.critic_target.save('successful_critic_target.h5')
             print('Training saved')
