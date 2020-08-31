@@ -5,6 +5,7 @@ import copy
 import random
 from collections import namedtuple, deque
 import math
+import time
 
 from iirabm_env import Iirabm_Environment
 
@@ -180,7 +181,7 @@ class Agent():
         # self.actor_optimizer.apply_gradients(
         #     zip(actor_grad, self.actor_local.trainable_variables))
 
-        tf_learn(self, states, actions, rewards, next_states, dones, gamma)
+        self.tf_learn(states, actions, rewards, next_states, dones, gamma)
         # ----------------------- update target networks ----------------------- #
         self.soft_update(self.critic_local, self.critic_target, TAU)
         self.soft_update(self.actor_local, self.actor_target, TAU)
@@ -215,33 +216,33 @@ class Agent():
     def restore_exploration(self):
         self.set_noise_process(GaussianNoiseProcess(self.noise_magnitude))
 
-@tf.function
-def tf_learn(model, states, actions, rewards, next_states, dones, gamma):
+    @tf.function
+    def tf_learn(self, states, actions, rewards, next_states, dones, gamma):
 
-    # ---------------------------- update critic ---------------------------- #
-    # Get predicted next-state actions and Q values from target models
-    with tf.GradientTape() as tape:
-        actions_next = model.actor_target(next_states)
-        Q_targets_next = model.critic_target([next_states, actions_next])
-        # Compute Q targets for current states (y_i)
-        Q_targets = rewards + (gamma * Q_targets_next * (1 - dones))
-        # Compute critic loss
-        Q_expected = model.critic_local([states, actions])
-        critic_loss = tf.math.reduce_mean(tf.math.square(Q_expected-Q_targets))
+        # ---------------------------- update critic ---------------------------- #
+        # Get predicted next-state actions and Q values from target models
+        with tf.GradientTape() as tape:
+            actions_next = self.actor_target(next_states)
+            Q_targets_next = self.critic_target([next_states, actions_next])
+            # Compute Q targets for current states (y_i)
+            Q_targets = rewards + (gamma * Q_targets_next * (1 - dones))
+            # Compute critic loss
+            Q_expected = self.critic_local([states, actions])
+            critic_loss = tf.math.reduce_mean(tf.math.square(Q_expected-Q_targets))
 
-    # Minimize the loss
-    critic_grad = tape.gradient(critic_loss, model.critic_local.trainable_variables)
-    model.critic_optimizer.apply_gradients(zip(critic_grad, model.critic_local.trainable_variables))
+        # Minimize the loss
+        critic_grad = tape.gradient(critic_loss, self.critic_local.trainable_variables)
+        self.critic_optimizer.apply_gradients(zip(critic_grad, self.critic_local.trainable_variables))
 
-    # ---------------------------- update actor ---------------------------- #
-    # Compute actor loss
-    with tf.GradientTape() as tape:
-        actions_pred = model.actor_local(states)
-        actor_loss = -1 * tf.math.reduce_mean(model.critic_local([states, actions_pred]))
-    # Minimize the loss
-    actor_grad = tape.gradient(actor_loss, model.actor_local.trainable_variables)
-    model.actor_optimizer.apply_gradients(
-        zip(actor_grad, model.actor_local.trainable_variables))
+        # ---------------------------- update actor ---------------------------- #
+        # Compute actor loss
+        with tf.GradientTape() as tape:
+            actions_pred = self.actor_local(states)
+            actor_loss = -1 * tf.math.reduce_mean(self.critic_local([states, actions_pred]))
+        # Minimize the loss
+        actor_grad = tape.gradient(actor_loss, self.actor_local.trainable_variables)
+        self.actor_optimizer.apply_gradients(
+            zip(actor_grad, self.actor_local.trainable_variables))
 
 """
 Noises processes
@@ -328,11 +329,12 @@ def ddpg(episodes, step, pretrained, noise):
     random_explore = False
     cytoMax = np.asarray([0,0,0,0,0,0,0,0,0,0,0,0])
 
-    for i in range(episodes):
+    for current_episode in range(episodes):
 
         state = env.reset()
         score = 0
         output_range = None
+        start = time.time()
         while True:
             t = env.current_step
             state = tf.expand_dims(tf.convert_to_tensor(state), 0)
@@ -361,32 +363,41 @@ def ddpg(episodes, step, pretrained, noise):
             if done:
                 if random_explore:
                     print("RANDOMLY EXPLORING                                                                                                    ")
-                print('Reward: {} | Episode: {} | Steps: {}                                                                   '.format(score, i, env.current_step))
+                print('Reward: {} | Episode: {} | Steps: {} | Time: {:.2f} Seconds                                                      '.format(score, current_episode, env.current_step, time.time() - start))
+
                 print("LOWS:  {:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f}".format(*output_range[0,:]))
                 print("HIGHS: {:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f}".format(*output_range[1,:]))
 
                 print()
-                if i >= 10 and random_explore:
+                if current_episode >= 10 and random_explore:
                     random_explore = False
-                if i % 200 == 0 and i > 0:
+                if current_episode % 1000 == 0 and current_episode > 0:
                     agent.update_exploration()
+                if current_episode % 100 == 0:
+                    print("saving model checkpoints and clearing memory")
+                    agent.actor_model.save('checkpoint_actor_model.h5')
+                    agent.actor_local.save('checkpoint_actor_local.h5')
+                    agent.critic_model.save('checkpoint_critic_model.h5')
+                    agent.critic_target.save('checkpoint_critic_target.h5')
+                    K.clear_session()
+                    print("reloading models")
+                    agent.actor_model = keras.load('checkpoint_actor_model.h5')
+                    agent.actor_target = keras.load('checkpoint_actor_target.h5')
+                    agent.critic_model = keras.load('checkpoint_critic_model.h5')
+                    agent.critic_target = keras.load('checkpoint_critic_target.h5')
                 break
 
         reward_list.append(score)
 
         if np.mean(reward_list[-20:]) >= 2000:
             print('Task Solved')
-            agent.actor_local.save_weights('checkpoint_actor.pth')
-            agent.critic_local.save_weights('checkpoint_critic.pth')
-            agent.actor_target.save_weights('checkpoint_actor_t.pth')
-            agent.critic_target.save_weights('checkpoint_critic_t.pth')
+            agent.actor_local.save('successful_actor_model.h5')
+            agent.critic_local.save('successful_critic_model.h5')
+            agent.actor_target.save('successful_actor_target.h5')
+            agent.critic_target.save('successful_critic_target.h5')
+            print('Training saved')
             break
-
-    agent.actor_local.save_weights('checkpoint_actor.pth')
-    agent.critic_local.save_weights('checkpoint_critic.pth')
-    agent.actor_target.save_weights('checkpoint_actor_t.pth')
-    agent.critic_target.save_weights('checkpoint_critic_t.pth')
-    print('Training saved')
+    print("Done Training")
     return reward_list
 
 # TRAINING TIME
@@ -400,7 +411,7 @@ action_dim = env.action_space.shape[0]
 
 agent = Agent(state_size=state_dim, action_size=action_dim)
 
-scores = ddpg(episodes=3000, step=2000, pretrained=False, noise=True)
+scores = ddpg(episodes=10000, step=2000, pretrained=False, noise=True)
 
 fig = plt.figure()
 plt.plot(np.arange(1, len(scores) + 1), scores)
