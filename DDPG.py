@@ -428,7 +428,7 @@ def ddpg(agent, episodes, step, pretrained, display_batch_size):
 
     for current_episode in range(1, episodes):
         state = env.reset()
-        env.set_seed(current_episode)
+        # env.set_seed(current_episode)
 
         output_range = None
         while True:
@@ -438,7 +438,7 @@ def ddpg(agent, episodes, step, pretrained, display_batch_size):
                 action = env.action_space.sample()
                 action = tf.expand_dims(action, axis=0)
             else:
-                action = agent.act(state, add_noise = -1* TESTING)
+                action = agent.act(state, add_noise = not TESTING)
             if output_range is not None:
                 action_np = env.cytokine_mults
                 for j in range(action_np.shape[0]):
@@ -519,7 +519,7 @@ action_dim = env.action_space.shape[0]
 
 ddpg_agent = Agent(state_size=state_dim, action_size=action_dim)
 
-scores = ddpg(ddpg_agent, episodes=10000, step=2000, pretrained=False, display_batch_size=1)
+scores = ddpg(ddpg_agent, episodes=10000, step=2000, pretrained=False, display_batch_size=10)
 
 fig = plt.figure()
 plt.plot(np.arange(1, len(scores) + 1), scores)
