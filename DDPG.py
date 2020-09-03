@@ -75,7 +75,7 @@ def critic_network(obs_size, action_size):
 
     return model
 
-BUFFER_SIZE = 100000      # replay buffer size
+BUFFER_SIZE = 1000000      # replay buffer size
 BATCH_SIZE = 64        # minibatch size
 GAMMA = 0.99               # discount factor
 TAU = 0.001                # for soft update of target parameters
@@ -456,6 +456,10 @@ env = Iirabm_Environment(rendering=None)
 
 state_dim = env.observation_space.shape[0]
 action_dim = env.action_space.shape[0]
+print(env.observation_space.shape)
+print(state_dim)
+print(env.action_space.shape)
+print(action_dim)
 
 ddpg_agent = Agent(state_size=state_dim, action_size=action_dim)
 

@@ -9,5 +9,6 @@ pip3 install keras
 pip3 install tensorflow_probability
 pip3 install tensorflow_addons
 pip3 install sklearn
+pip3 install psutil
 g++ -fPIC -Wall -shared -o Simulation.so ./CPP/*.cpp -std=c++11 -O30
 python3 ./DDPG.py

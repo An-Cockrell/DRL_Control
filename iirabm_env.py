@@ -25,9 +25,9 @@ globalBG = None
 
 
 MAX_OXYDEF = 8160
-MAX_STEPS = 2000
+MAX_STEPS = 1000
 NUM_CYTOKINES_CONTROLLED = 11
-NUM_OBSERVTAIONS = 1
+NUM_OBSERVTAIONS = 3
 # OBS_VEC_SHAPE = NUM_CYTOKINES*((NUM_OBSERVTAIONS*2)-1)
 all_signals_max = np.array([8164,  250,  118, 1675,  880,  108, 4027,  730, 1232, 2204,   87,   83])
 
@@ -72,8 +72,8 @@ class Iirabm_Environment(gym.Env):
         obs_space_high = np.array(all_signals_max)
         # for i in range(NUM_OBSERVTAIONS-1):
         #     obs_space_high = np.hstack((obs_space_high, np.array([10,10,10,10,10,10,10,10,10,10,10])))
-        # for i in range(NUM_OBSERVTAIONS):
-        #     obs_space_high = np.hstack((obs_space_high,all_signals_max[[0,2,3,4,5,12,13,14,15,16,17,18]]))
+        for i in range(NUM_OBSERVTAIONS-1):
+            obs_space_high = np.hstack((obs_space_high,all_signals_max))
         print(obs_space_high.shape)
         self.observation_space = gym.spaces.Box(
             low=0,
@@ -144,7 +144,7 @@ class Iirabm_Environment(gym.Env):
         observation = cytokines
         for i in range(observation.shape[0]):
             observation[i,:] = observation[i,:] / self.observation_space.high[i]
-        observation = np.squeeze(observation)
+        observation = np.squeeze(observation).flatten()
 
         return observation
 
@@ -164,17 +164,17 @@ class Iirabm_Environment(gym.Env):
             # negative change from last step ie oxydef goes down reward goes up
             return_reward = self.oxydef_history[self.current_step-1] - self.oxydef_history[self.current_step]
 
-        # return_reward += 1 #bonus for staying alive per step
-        # if self.oxydef_history[self.current_step] < 2750:
-        #     return_reward += 2
-        #     if self.calculate_done():
-        #         return_reward += 98
-        #         # if it lives then total +100 reward
-        #
-        # if self.oxydef_history[self.current_step] > 6000:
-        #     return_reward -= 0.5
-        #     if self.calculate_done():
-        #         return_reward -= 99.5
+        return_reward += 1 #bonus for staying alive per step
+        if self.oxydef_history[self.current_step] < 2750:
+            return_reward += 2
+            if self.calculate_done():
+                return_reward += 98
+                # if it lives then total +100 reward
+
+        if self.oxydef_history[self.current_step] > 6000:
+            return_reward -= 0.5
+            if self.calculate_done():
+                return_reward -= 99.5
                 # if it dies then total -100 reward
 
         return float(return_reward)
