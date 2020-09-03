@@ -357,13 +357,6 @@ class ReplayBuffer:
         return len(self.memory)
 
 def ddpg(agent, episodes, step, pretrained, display_batch_size):
-
-    if pretrained:
-        agent.actor_local = tf.keras.models.load_model('successful_actor_local.h5')
-        agent.critic_local = tf.keras.models.load_model('successful_critic_local.h5')
-        agent.actor_target = tf.keras.models.load_model('successful_actor_target.h5')
-        agent.critic_targe = tf.keras.models.load_model('successful_critic_target.h5')
-
     reward_list = []
     random_explore = False
     TESTING = False
@@ -371,6 +364,13 @@ def ddpg(agent, episodes, step, pretrained, display_batch_size):
     cytoMax = np.asarray([0,0,0,0,0,0,0,0,0,0,0,0])
     start = time.time()
     score = 0
+
+    if pretrained:
+        agent.actor_local = tf.keras.models.load_model('successful_actor_local.h5')
+        agent.critic_local = tf.keras.models.load_model('successful_critic_local.h5')
+        agent.actor_target = tf.keras.models.load_model('successful_actor_target.h5')
+        agent.critic_targe = tf.keras.models.load_model('successful_critic_target.h5')
+        TESTING = True
 
     for current_episode in range(1, episodes):
         state = env.reset()
