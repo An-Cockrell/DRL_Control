@@ -128,14 +128,14 @@ class Agent():
         self.updating_time = 0
         self.selecting_time = 0
 
-    def step(self, state, action, reward, next_state, done, building_buffer=False):
+    def step(self, state, action, reward, next_state, done, testing=False):
         """Save experience in replay memory, and use random sample from buffer to learn."""
         # Save experience / reward
         self.memory.add(state, action, reward, next_state, done)
 
         # Learn, if enough samples are available in memory
 
-        if len(self.memory) > BATCH_SIZE and not building_buffer:
+        if len(self.memory) > BATCH_SIZE and not testing:
             selecting_time_start = time.time()
             experiences = self.memory.sample()
             self.selecting_time += time.time() - selecting_time_start
@@ -359,10 +359,10 @@ class ReplayBuffer:
 def ddpg(agent, episodes, step, pretrained, display_batch_size):
 
     if pretrained:
-        agent.actor_local.load_weights('1checkpoint_actor.pth')
-        agent.critic_local.load_weights('1checkpoint_critic.pth')
-        agent.actor_target.load_weights('1checkpoint_actor.pth')
-        agent.critic_target.load_weights('1checkpoint_critic.pth')
+        agent.actor_local = tf.keras.models.load_model('successful_actor_local.h5')
+        agent.critic_local = tf.keras.models.load_model('successful_critic_local.h5')
+        agent.actor_target = tf.keras.models.load_model('successful_actor_target.h5')
+        agent.critic_targe t= tf.keras.models.load_model('successful_critic_target.h5')
 
     reward_list = []
     random_explore = False
@@ -372,7 +372,7 @@ def ddpg(agent, episodes, step, pretrained, display_batch_size):
     score = 0
 
     for current_episode in range(1, episodes):
-
+        agent.set_seed(episode)
         state = env.reset()
         output_range = None
         while True:
@@ -382,7 +382,7 @@ def ddpg(agent, episodes, step, pretrained, display_batch_size):
                 action = env.action_space.sample()
                 action = tf.expand_dims(action, axis=0)
             else:
-                action = agent.act(state, noise)
+                action = agent.act(state, noise = -1* TESTING)
             if output_range is not None:
                 action_np = env.cytokine_mults
                 for j in range(action_np.shape[0]):
@@ -396,14 +396,14 @@ def ddpg(agent, episodes, step, pretrained, display_batch_size):
             next_state, reward, done, info = env.step(action[0])
             # print(reward)
             if env.current_step > 100: # after the burn in period, then start learning. Also so we dont add step < 100 to memory
-                agent.step(state, action, reward, next_state, done, building_buffer=random_explore)
+                agent.step(state, action, reward, next_state, done, testing=TESTING)
                 score += reward
             state = next_state.squeeze()
 
             if done:
-                if random_explore:
-                    print("RANDOMLY EXPLORING                                                                                                    ")
                 if current_episode % display_batch_size==0:
+                    if TESTING:
+                        print("TESTING -- TESTING")
                     print('Episode: {:4.0f} | Avg Reward last {} episodes: {:5.2f} | Avg Time last {} episodes: {:.2f} Seconds'.format(current_episode, display_batch_size, score/display_batch_size, display_batch_size, (time.time() - start)/display_batch_size))
                     print("Avgs of last {} - Selecting Time: {:3.2f}, Training Time: {:3.2f}, Updating Time: {:3.2f}".format(display_batch_size, agent.selecting_time/display_batch_size, agent.training_time/display_batch_size, agent.updating_time/display_batch_size))
                     # print("LOWS:  {:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f}".format(*output_range[0,:]))
@@ -416,8 +416,18 @@ def ddpg(agent, episodes, step, pretrained, display_batch_size):
                     start = time.time()
 
 
-                if current_episode >= 10 and random_explore:
-                    random_explore = False
+                if current_episode % 10 == 0 and TESTING:
+                    TESTING = False
+                    if np.mean(reward_list[-10:]) >= 2000:
+                        print('Task Solved')
+                        agent.actor_local.save('successful_actor_local.h5')
+                        agent.critic_local.save('successful_critic_local.h5')
+                        agent.actor_target.save('successful_actor_target.h5')
+                        agent.critic_target.save('successful_critic_target.h5')
+                        print('Training saved')
+                        break
+                if current_episode%100 == 0:
+                    TESTING = True
                 if current_episode % 200 == 0 and current_episode > 0:
                     agent.update_exploration()
                 # if current_episode % 5 == 0 and current_episode > 0:
@@ -437,14 +447,7 @@ def ddpg(agent, episodes, step, pretrained, display_batch_size):
 
         reward_list.append(score)
 
-        if np.mean(reward_list[-20:]) >= 2000:
-            print('Task Solved')
-            agent.actor_local.save('successful_actor_local.h5')
-            agent.critic_local.save('successful_critic_local.h5')
-            agent.actor_target.save('successful_actor_target.h5')
-            agent.critic_target.save('successful_critic_target.h5')
-            print('Training saved')
-            break
+
     print("Done Training")
     return reward_list
 
@@ -456,10 +459,7 @@ env = Iirabm_Environment(rendering=None)
 
 state_dim = env.observation_space.shape[0]
 action_dim = env.action_space.shape[0]
-print(env.observation_space.shape)
-print(state_dim)
-print(env.action_space.shape)
-print(action_dim)
+
 
 ddpg_agent = Agent(state_size=state_dim, action_size=action_dim)
 
