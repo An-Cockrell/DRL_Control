@@ -362,7 +362,7 @@ def ddpg(agent, episodes, step, pretrained, display_batch_size):
         agent.actor_local = tf.keras.models.load_model('successful_actor_local.h5')
         agent.critic_local = tf.keras.models.load_model('successful_critic_local.h5')
         agent.actor_target = tf.keras.models.load_model('successful_actor_target.h5')
-        agent.critic_targe t= tf.keras.models.load_model('successful_critic_target.h5')
+        agent.critic_targe = tf.keras.models.load_model('successful_critic_target.h5')
 
     reward_list = []
     random_explore = False
@@ -372,7 +372,7 @@ def ddpg(agent, episodes, step, pretrained, display_batch_size):
     score = 0
 
     for current_episode in range(1, episodes):
-        agent.set_seed(episode)
+        env.set_seed(episode)
         state = env.reset()
         output_range = None
         while True:
