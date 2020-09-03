@@ -366,14 +366,16 @@ def ddpg(agent, episodes, step, pretrained, display_batch_size):
 
     reward_list = []
     random_explore = False
+    TESTING = False
     noise = True
     cytoMax = np.asarray([0,0,0,0,0,0,0,0,0,0,0,0])
     start = time.time()
     score = 0
 
     for current_episode in range(1, episodes):
-        env.set_seed(current_episode)
         state = env.reset()
+        env.set_seed(current_episode)
+
         output_range = None
         while True:
             t = env.current_step
@@ -382,7 +384,7 @@ def ddpg(agent, episodes, step, pretrained, display_batch_size):
                 action = env.action_space.sample()
                 action = tf.expand_dims(action, axis=0)
             else:
-                action = agent.act(state, noise = -1* TESTING)
+                action = agent.act(state, add_noise = -1* TESTING)
             if output_range is not None:
                 action_np = env.cytokine_mults
                 for j in range(action_np.shape[0]):
