@@ -372,7 +372,7 @@ def ddpg(agent, episodes, step, pretrained, display_batch_size):
     score = 0
 
     for current_episode in range(1, episodes):
-        env.set_seed(episode)
+        env.set_seed(current_episode)
         state = env.reset()
         output_range = None
         while True:
