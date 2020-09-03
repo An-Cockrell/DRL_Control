@@ -192,7 +192,7 @@ class Agent():
             self.selecting_time += time.time() - selecting_time_start
             self.learn(experiences, tf.constant(GAMMA))
 
-    def act(self, state, add_noise=True):
+    def act(self, state, add_noise):
         """Returns actions for given state as per current policy."""
 
         action = self.actor_local(state)
