@@ -82,14 +82,16 @@ def output_activation(x):
 
 
 def actor_network(obs_size, action_size):
-    num_hidden1 = 484
-    num_hidden2 = 242
+    num_hidden1 = 1000
+    num_hidden2 = 500
+    num_hidden3 = 200
     input = tf.keras.layers.Input(shape=obs_size)
 
-    hidden = layers.Dense(num_hidden1, activation="linear")(input)
+    hidden = layers.Dense(num_hidden1, activation="relu")(input)
     hidden = layers.BatchNormalization()(hidden)
-    hidden = layers.Dense(num_hidden2, activation="linear")(hidden)
+    hidden = layers.Dense(num_hidden2, activation="relu")(hidden)
     hidden = layers.BatchNormalization()(hidden)
+    hidden = layers.Dense(num_hidden3, activation="relu")(hidden)
 
     output = layers.Dense(action_size, activation='tanh',kernel_initializer='random_normal')(hidden)
 
@@ -117,7 +119,7 @@ def critic_network(obs_size, action_size):
     # Both are passed through seperate layer before concatenating
     concat = layers.Concatenate()([state_out, action_out])
 
-    out = layers.Dense(output_hidden, activation="linear")(concat)
+    out = layers.Dense(output_hidden, activation="relu")(concat)
     out = layers.BatchNormalization()(out)
     out = layers.Dense(output_hidden, activation="relu")(out)
     out = layers.BatchNormalization()(out)
@@ -146,7 +148,7 @@ class Agent():
         self.training_time = 0
         self.updating_time = 0
         self.selecting_time = 0
-        self.noise_magnitude = .5
+        self.noise_magnitude = .02
         # Actor Network (w/ Target Network)
 
         self.actor_local = actor_network(state_size, action_size)
@@ -163,7 +165,7 @@ class Agent():
 
         # Noise process
         self.noise = GaussianNoiseProcess(self.noise_magnitude, self.action_size)
-
+        self.noise = OUNoise(self.action_size)
         # Replay memory
         self.memory = ReplayBuffer(action_size, BUFFER_SIZE, BATCH_SIZE)
 
@@ -172,26 +174,30 @@ class Agent():
         self.updating_time = 0
         self.selecting_time = 0
 
-    def step(self, state, action, reward, next_state, done, testing=False):
+    def step(self, state, action, reward, next_state, done):
         """Save experience in replay memory, and use random sample from buffer to learn."""
         # Save experience / reward
         self.memory.add(state, action, reward, next_state, done)
 
+    def train(self):
         # Learn, if enough samples are available in memory
 
-        if len(self.memory) > BATCH_SIZE and not testing:
+        if len(self.memory) > BATCH_SIZE:
             selecting_time_start = time.time()
             experiences = self.memory.sample()
             self.selecting_time += time.time() - selecting_time_start
             self.learn(experiences, tf.constant(GAMMA))
 
-    def act(self, state, add_noise):
+
+    def act(self, state, training):
         """Returns actions for given state as per current policy."""
 
         action = self.actor_local(state)
-        if add_noise:
-            action += self.noise.sample()
-
+        if training:
+            # action += self.noise.sample()
+            pass
+        else:
+            action = self.actor_target(state)
         # print(action)
         # print(state)
         return action
@@ -226,6 +232,16 @@ class Agent():
     @tf.function
     def tf_learn(self, states, actions, rewards, next_states, dones, gamma):
 
+        # ---------------------------- update actor ---------------------------- #
+        # Compute actor loss
+        with tf.GradientTape() as tape:
+            actions_pred = self.actor_local(states)
+            actor_loss = -tf.reduce_mean(self.critic_local([states, actions_pred]))
+            # Minimize the loss
+            actor_grad = tape.gradient(actor_loss, self.actor_local.trainable_variables)
+        self.actor_optimizer.apply_gradients(
+            zip(actor_grad, self.actor_local.trainable_variables))
+
         # ---------------------------- update critic ---------------------------- #
         # Get predicted next-state actions and Q values from target models
         with tf.GradientTape() as tape:
@@ -235,21 +251,12 @@ class Agent():
             Q_targets = rewards + (gamma * Q_targets_next * (1 - dones))
             # Compute critic loss
             Q_expected = self.critic_local([states, actions])
-            critic_loss = tf.math.reduce_mean(tf.math.square(Q_expected-Q_targets))
-
+            critic_loss = tf.reduce_mean((Q_expected-Q_targets)**2)
+        # print("{:1.4f}".format(critic_loss), end="\r")
         # Minimize the loss
-        critic_grad = tape.gradient(critic_loss, self.critic_local.trainable_variables)
+            critic_grad = tape.gradient(critic_loss, self.critic_local.trainable_variables)
         self.critic_optimizer.apply_gradients(zip(critic_grad, self.critic_local.trainable_variables))
 
-        # ---------------------------- update actor ---------------------------- #
-        # Compute actor loss
-        with tf.GradientTape() as tape:
-            actions_pred = self.actor_local(states)
-            actor_loss = -1 * tf.math.reduce_mean(self.critic_local([states, actions_pred]))
-        # Minimize the loss
-        actor_grad = tape.gradient(actor_loss, self.actor_local.trainable_variables)
-        self.actor_optimizer.apply_gradients(
-            zip(actor_grad, self.actor_local.trainable_variables))
 
     def set_noise_process(self, np):
         self.noise_process = np
@@ -340,18 +347,19 @@ class ReplayBuffer:
 
 def ddpg(agent, episodes, step, pretrained, display_batch_size):
     reward_list = []
-    random_explore = False
+    random_explore = True
     TESTING = False
     noise = True
     cytoMax = np.asarray([0,0,0,0,0,0,0,0,0,0,0,0])
     start = time.time()
     score = 0
+    Q_score = 0
 
     if pretrained:
         agent.actor_local = tf.keras.models.load_model('successful_actor_local.h5')
         agent.critic_local = tf.keras.models.load_model('successful_critic_local.h5')
         agent.actor_target = tf.keras.models.load_model('successful_actor_target.h5')
-        agent.critic_targe = tf.keras.models.load_model('successful_critic_target.h5')
+        agent.critic_target = tf.keras.models.load_model('successful_critic_target.h5')
         TESTING = True
 
     for current_episode in range(1, episodes):
@@ -359,48 +367,45 @@ def ddpg(agent, episodes, step, pretrained, display_batch_size):
         # env.set_seed(current_episode)
         current_step = 0
         output_range = None
-        while True:
-            env.render()
+        for a in range(step):
             state = tf.expand_dims(tf.convert_to_tensor(state), 0)
             if random_explore:
                 action = env.action_space.sample()
                 action = tf.expand_dims(action, axis=0)
             else:
-                action = agent.act(state, add_noise = not TESTING)
-            # if output_range is not None:
-            #     action_np = env.cytokine_mults
-            #     for j in range(action_np.shape[0]):
-            #         if output_range[0,j] > action_np[j]:
-            #             output_range[0,j] = action_np[j]
-            #         elif output_range[1,j] < action_np[j]:
-            #             output_range[1,j] = action_np[j]
-            # else:
-            #     output_range = np.stack([env.cytokine_mults, env.cytokine_mults])
-            #     output_range = np.squeeze(output_range)
+                action = agent.act(state, training = not TESTING)
+
             next_state, reward, done, info = env.step(action[0])
             current_step += 1
             # print(reward)
             # if current_step > 100: # after the burn in period, then start learning. Also so we dont add step < 100 to memory
-            agent.step(state, action, reward, next_state, done, testing=TESTING)
+            agent.step(state, action, reward, next_state, done)
             score += reward
+            Q_reward = agent.critic_local([state, action])[0][0]
+            # print("{:3.2f}, {:4.2f}".format(reward, Q_reward), end="\r")
+            Q_score += Q_reward
             state = next_state.squeeze()
 
             if done:
                 if current_episode % display_batch_size==0:
                     if TESTING:
-                        print("TESTING -- TESTING")
+                        print("TESTING -- TESTING -- TESTING -- TESTING")
                     print('Episode: {:4.0f} | Avg Reward last {} episodes: {:5.2f} | Avg Time last {} episodes: {:.2f} Seconds'.format(current_episode, display_batch_size, score/display_batch_size, display_batch_size, (time.time() - start)/display_batch_size))
-                    print("Avgs of last {} - Selecting Time: {:3.2f}, Training Time: {:3.2f}, Updating Time: {:3.2f}".format(display_batch_size, agent.selecting_time/display_batch_size, agent.training_time/display_batch_size, agent.updating_time/display_batch_size))
+                    # print("Avgs of last {} - Selecting Time: {:3.2f}, Training Time: {:3.2f}, Updating Time: {:3.2f}".format(display_batch_size, agent.selecting_time/display_batch_size, agent.training_time/display_batch_size, agent.updating_time/display_batch_size))
+                    # print("score")
                     # print("LOWS:  {:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f}".format(*output_range[0,:]))
                     # print("HIGHS: {:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f}".format(*output_range[1,:]))
-                    print("% Total Memory available: {:3.5f}".format(psutil.virtual_memory().available * 100 / psutil.virtual_memory().total))
+                    # print("% Total Memory available: {:3.5f}".format(psutil.virtual_memory().available * 100 / psutil.virtual_memory().total))
 
-                    print()
+                    # print("Real reward: {:4.0f}, Q_score: {:4.0f}, Difference: {:4.0f}".format(score, Q_score, score-Q_score))
                     score = 0
+                    Q_score = 0
                     agent.reset_timers()
                     start = time.time()
 
-
+                if random_explore and current_episode > 5:
+                    random_explore = False
+                    print("USING AGENT ACTIONS NOW")
                 if current_episode % 10 == 0 and TESTING:
                     TESTING = False
                     if np.mean(reward_list[-10:]) >= 2000:
@@ -413,8 +418,8 @@ def ddpg(agent, episodes, step, pretrained, display_batch_size):
                         break
                 if current_episode%100 == 0:
                     TESTING = True
-                if current_episode % 100 == 0 and current_episode > 0:
-                    agent.update_exploration()
+                # if current_episode % 100 == 0 and current_episode > 0:
+                    # agent.update_exploration()
                 # if current_episode % 5 == 0 and current_episode > 0:
                 #     print("saving model checkpoints and clearing memory")
                 #     agent.actor_local.save('checkpoint_actor_local.h5')
@@ -429,7 +434,8 @@ def ddpg(agent, episodes, step, pretrained, display_batch_size):
                 #     agent.critic_target = tf.keras.models.load_model('checkpoint_critic_target.h5')
                 gc.collect()
                 break
-
+        for _ in range(current_step):
+            agent.train()
         reward_list.append(reward)
 
 
@@ -439,7 +445,7 @@ def ddpg(agent, episodes, step, pretrained, display_batch_size):
 # TRAINING TIME
 
 BUFFER_SIZE = 1000000      # replay buffer size
-BATCH_SIZE = 128        # minibatch size
+BATCH_SIZE = 32        # minibatch size
 GAMMA = 0.99               # discount factor
 TAU = 0.001                # for soft update of target parameters
 LR_ACTOR = 0.0001          # learning rate of the actor
@@ -455,7 +461,7 @@ action_dim = env.action_space.shape[0]
 
 ddpg_agent = Agent(state_size=state_dim, action_size=action_dim)
 
-scores = ddpg(ddpg_agent, episodes=10000, step=2000, pretrained=False, display_batch_size=10)
+scores = ddpg(ddpg_agent, episodes=10000, step=200, pretrained=False, display_batch_size=1)
 
 fig = plt.figure()
 plt.plot(np.arange(1, len(scores) + 1), scores)
