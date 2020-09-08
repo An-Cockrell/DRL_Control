@@ -1,5 +1,7 @@
 # https://github.com/shivaverma/OpenAIGym/tree/master/bipedal-walker/ddpg-torch
 
+import gym
+
 import numpy as np
 import copy
 import random
@@ -126,15 +128,6 @@ def critic_network(obs_size, action_size):
 
     return model
 
-BUFFER_SIZE = 1000000      # replay buffer size
-BATCH_SIZE = 128        # minibatch size
-GAMMA = 0.99               # discount factor
-TAU = 0.001                # for soft update of target parameters
-LR_ACTOR = 0.0001          # learning rate of the actor
-LR_CRITIC = 0.001          # learning rate of the critic
-WEIGHT_DECAY = 0.001       # L2 weight decay
-
-
 class Agent():
     """Interacts with and learns from the environment."""
 
@@ -221,85 +214,14 @@ class Agent():
         states, actions, rewards, next_states, dones = experiences
 
         train_time_start = time.time()
-        # # ---------------------------- update critic ---------------------------- #
-        # # Get predicted next-state actions and Q values from target models
-        # with tf.GradientTape() as tape:
-        #     actions_next = self.predict_actor_local(next_states)
-        #     Q_targets_next = self.predict_critic_target(next_states, actions_next)
-        #     # Compute Q targets for current states (y_i)
-        #     Q_targets = compute_Q_targets(rewards, gamma, Q_targets_next, dones)
-        #     # Compute critic loss
-        #     Q_expected = self.predict_critic_local(states, actions)
-        #     critic_loss = compute_critic_loss(Q_expected, Q_targets)
-        #
-        # # Minimize the loss
-        # critic_grad = tape.gradient(critic_loss, self.critic_local.trainable_variables)
-        # self.apply_critic_grads(critic_grad, self.critic_local.trainable_variables)
-        # # self.critic_optimizer.apply_gradients(zip(critic_grad, self.critic_local.trainable_variables))
-        #
-        # # ---------------------------- update actor ---------------------------- #
-        # # Compute actor loss
-        # with tf.GradientTape() as tape:
-        #     actions_pred = self.predict_actor_local(states)
-        #     actor_loss = compute_actor_loss(self.predict_critic_local(states, actions_pred))
-        # # Minimize the loss
-        # actor_grad = tape.gradient(actor_loss,self.actor_local.trainable_variables)
-        # self.apply_actor_grads(actor_grad, self.actor_local.trainable_variables)
-        # # self.actor_optimizer.apply_gradients(
-        # #     zip(actor_grad, self.actor_local.trainable_variables))
         self.tf_learn(states, actions, rewards, next_states, dones, gamma)
         self.training_time += time.time() - train_time_start
 
         # ----------------------- update target networks ----------------------- #
         update_time_start = time.time()
-        update_target_variables(self.critic_target.weights, self.critic_local.weights, TAU)
-        update_target_variables(self.actor_target.weights, self.actor_local.weights, TAU)
-        # self.soft_update(self.critic_local, self.critic_target, TAU)
-        # self.soft_update(self.actor_local, self.actor_target, TAU)
+        update_target_variables(self.critic_target.weights, self.critic_local.weights, tau=TAU)
+        update_target_variables(self.actor_target.weights, self.actor_local.weights, tau=TAU)
         self.updating_time += time.time() - update_time_start
-    @tf.function
-    def predict_actor_local(self, state):
-        return self.actor_local(state)
-    @tf.function
-    def predict_actor_target(self,state):
-        return self.actor_target(state)
-    @tf.function
-    def predict_critic_local(self, states, actions_pred):
-        return self.critic_local([states, actions_pred])
-    @tf.function
-    def predict_critic_target(self, states, actions_next):
-        return self.critic_target([states, actions_next])
-    @tf.function
-    def apply_critic_grads(self, crit_grad, trainable_vars):
-        self.critic_optimizer.apply_gradients(zip(crit_grad, trainable_vars))
-    @tf.function
-    def apply_actor_grads(self, act_grad, trainable_vars):
-        self.actor_optimizer.apply_gradients(zip(act_grad, trainable_vars))
-
-    def soft_update(self, local_model, target_model, tau):
-        """Soft update model parameters.
-        θ_target = τ*θ_local + (1 - τ)*θ_target
-        """
-        new_weights = []
-        target_variables = target_model.weights
-        for i, variable in enumerate(local_model.weights):
-            new_weights.append(variable * TAU + target_variables[i] * (1 - TAU))
-
-        target_model.set_weights(new_weights)
-
-    def set_noise_process(self, np):
-        self.noise_process = np
-
-    def update_exploration(self):
-        self.noise_magnitude /= 5
-        self.set_noise_process(GaussianNoiseProcess(self.noise_magnitude, self.action_size))
-        print("Reducing noise to {}".format(self.noise_magnitude))
-
-    def suspend_exploration(self):
-        self.set_noise_process(GaussianNoiseProcess(0))
-
-    def restore_exploration(self):
-        self.set_noise_process(GaussianNoiseProcess(self.noise_magnitude))
 
     @tf.function
     def tf_learn(self, states, actions, rewards, next_states, dones, gamma):
@@ -328,15 +250,21 @@ class Agent():
         actor_grad = tape.gradient(actor_loss, self.actor_local.trainable_variables)
         self.actor_optimizer.apply_gradients(
             zip(actor_grad, self.actor_local.trainable_variables))
-@ tf.function
-def compute_Q_targets(rewards, gamma, Q_targets_next, dones):
-    return (rewards + (gamma * Q_targets_next * (1 - dones)))
-@tf.function
-def compute_critic_loss(Q_expected, Q_targets):
-    return tf.math.reduce_mean(tf.math.square(Q_expected - Q_targets))
-@tf.function
-def compute_actor_loss(critic_val):
-     return -1 * tf.math.reduce_mean(critic_val)
+
+    def set_noise_process(self, np):
+        self.noise_process = np
+
+    def update_exploration(self):
+        self.noise_magnitude /= 5
+        self.set_noise_process(GaussianNoiseProcess(self.noise_magnitude, self.action_size))
+        print("Reducing noise to {}".format(self.noise_magnitude))
+
+    def suspend_exploration(self):
+        self.set_noise_process(GaussianNoiseProcess(0))
+
+    def restore_exploration(self):
+        self.set_noise_process(GaussianNoiseProcess(self.noise_magnitude))
+
 """
 Noises processes
 
@@ -429,31 +357,32 @@ def ddpg(agent, episodes, step, pretrained, display_batch_size):
     for current_episode in range(1, episodes):
         state = env.reset()
         # env.set_seed(current_episode)
-
+        current_step = 0
         output_range = None
         while True:
-            t = env.current_step
+            env.render()
             state = tf.expand_dims(tf.convert_to_tensor(state), 0)
             if random_explore:
                 action = env.action_space.sample()
                 action = tf.expand_dims(action, axis=0)
             else:
                 action = agent.act(state, add_noise = not TESTING)
-            if output_range is not None:
-                action_np = env.cytokine_mults
-                for j in range(action_np.shape[0]):
-                    if output_range[0,j] > action_np[j]:
-                        output_range[0,j] = action_np[j]
-                    elif output_range[1,j] < action_np[j]:
-                        output_range[1,j] = action_np[j]
-            else:
-                output_range = np.stack([env.cytokine_mults, env.cytokine_mults])
-                output_range = np.squeeze(output_range)
+            # if output_range is not None:
+            #     action_np = env.cytokine_mults
+            #     for j in range(action_np.shape[0]):
+            #         if output_range[0,j] > action_np[j]:
+            #             output_range[0,j] = action_np[j]
+            #         elif output_range[1,j] < action_np[j]:
+            #             output_range[1,j] = action_np[j]
+            # else:
+            #     output_range = np.stack([env.cytokine_mults, env.cytokine_mults])
+            #     output_range = np.squeeze(output_range)
             next_state, reward, done, info = env.step(action[0])
+            current_step += 1
             # print(reward)
-            if env.current_step > 100: # after the burn in period, then start learning. Also so we dont add step < 100 to memory
-                agent.step(state, action, reward, next_state, done, testing=TESTING)
-                score += reward
+            # if current_step > 100: # after the burn in period, then start learning. Also so we dont add step < 100 to memory
+            agent.step(state, action, reward, next_state, done, testing=TESTING)
+            score += reward
             state = next_state.squeeze()
 
             if done:
@@ -484,7 +413,7 @@ def ddpg(agent, episodes, step, pretrained, display_batch_size):
                         break
                 if current_episode%100 == 0:
                     TESTING = True
-                if current_episode % 200 == 0 and current_episode > 0:
+                if current_episode % 100 == 0 and current_episode > 0:
                     agent.update_exploration()
                 # if current_episode % 5 == 0 and current_episode > 0:
                 #     print("saving model checkpoints and clearing memory")
@@ -509,10 +438,17 @@ def ddpg(agent, episodes, step, pretrained, display_batch_size):
 
 # TRAINING TIME
 
+BUFFER_SIZE = 1000000      # replay buffer size
+BATCH_SIZE = 128        # minibatch size
+GAMMA = 0.99               # discount factor
+TAU = 0.001                # for soft update of target parameters
+LR_ACTOR = 0.0001          # learning rate of the actor
+LR_CRITIC = 0.001          # learning rate of the critic
+WEIGHT_DECAY = 0.001       # L2 weight decay
 
 
 env = Iirabm_Environment(rendering=None)
-
+env = gym.make("Pendulum-v0")  # Create the environment
 state_dim = env.observation_space.shape[0]
 action_dim = env.action_space.shape[0]
 
