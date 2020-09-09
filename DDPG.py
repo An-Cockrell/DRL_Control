@@ -133,7 +133,7 @@ def critic_network(obs_size, action_size):
 class Agent():
     """Interacts with and learns from the environment."""
 
-    def __init__(self, state_size, action_size):
+    def __init__(self, state_size, action_size, noise_magnitude=.1):
         """Initialize an Agent object.
 
         Params
@@ -148,7 +148,7 @@ class Agent():
         self.training_time = 0
         self.updating_time = 0
         self.selecting_time = 0
-        self.noise_magnitude = .02
+        self.noise_magnitude = .1
         # Actor Network (w/ Target Network)
 
         self.actor_local = actor_network(state_size, action_size)
@@ -165,7 +165,7 @@ class Agent():
 
         # Noise process
         self.noise = GaussianNoiseProcess(self.noise_magnitude, self.action_size)
-        self.noise = OUNoise(self.action_size)
+        # self.noise = OUNoise(self.action_size)
         # Replay memory
         self.memory = ReplayBuffer(action_size, BUFFER_SIZE, BATCH_SIZE)
 
@@ -173,6 +173,7 @@ class Agent():
         self.training_time = 0
         self.updating_time = 0
         self.selecting_time = 0
+
 
     def step(self, state, action, reward, next_state, done):
         """Save experience in replay memory, and use random sample from buffer to learn."""
@@ -194,8 +195,7 @@ class Agent():
 
         action = self.actor_local(state)
         if training:
-            # action += self.noise.sample()
-            pass
+            action += self.noise.sample()
         else:
             action = self.actor_target(state)
         # print(action)
@@ -262,7 +262,7 @@ class Agent():
         self.noise_process = np
 
     def update_exploration(self):
-        self.noise_magnitude /= 5
+        self.noise_magnitude /= 2
         self.set_noise_process(GaussianNoiseProcess(self.noise_magnitude, self.action_size))
         print("Reducing noise to {}".format(self.noise_magnitude))
 
@@ -367,7 +367,7 @@ def ddpg(agent, episodes, step, pretrained, display_batch_size):
         # env.set_seed(current_episode)
         current_step = 0
         output_range = None
-        for a in range(step):
+        for _ in range(step):
             state = tf.expand_dims(tf.convert_to_tensor(state), 0)
             if random_explore:
                 action = env.action_space.sample()
@@ -391,7 +391,7 @@ def ddpg(agent, episodes, step, pretrained, display_batch_size):
                     if TESTING:
                         print("TESTING -- TESTING -- TESTING -- TESTING")
                     print('Episode: {:4.0f} | Avg Reward last {} episodes: {:5.2f} | Avg Time last {} episodes: {:.2f} Seconds'.format(current_episode, display_batch_size, score/display_batch_size, display_batch_size, (time.time() - start)/display_batch_size))
-                    # print("Avgs of last {} - Selecting Time: {:3.2f}, Training Time: {:3.2f}, Updating Time: {:3.2f}".format(display_batch_size, agent.selecting_time/display_batch_size, agent.training_time/display_batch_size, agent.updating_time/display_batch_size))
+                    print("Avgs of last {} - Selecting Time: {:3.2f}, Training Time: {:3.2f}, Updating Time: {:3.2f}".format(display_batch_size, agent.selecting_time/display_batch_size, agent.training_time/display_batch_size, agent.updating_time/display_batch_size))
                     # print("score")
                     # print("LOWS:  {:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f}".format(*output_range[0,:]))
                     # print("HIGHS: {:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f}".format(*output_range[1,:]))
@@ -418,8 +418,8 @@ def ddpg(agent, episodes, step, pretrained, display_batch_size):
                         break
                 if current_episode%100 == 0:
                     TESTING = True
-                # if current_episode % 100 == 0 and current_episode > 0:
-                    # agent.update_exploration()
+                if current_episode % EPS_BETWEEN_EXP_UPDATE == 0 and current_episode > 0:
+                    agent.update_exploration()
                 # if current_episode % 5 == 0 and current_episode > 0:
                 #     print("saving model checkpoints and clearing memory")
                 #     agent.actor_local.save('checkpoint_actor_local.h5')
@@ -451,17 +451,18 @@ TAU = 0.001                # for soft update of target parameters
 LR_ACTOR = 0.0001          # learning rate of the actor
 LR_CRITIC = 0.001          # learning rate of the critic
 WEIGHT_DECAY = 0.001       # L2 weight decay
-
+STARTING_NOISE_MAG = .05    #initial exploration noise magnitude
+EPS_BETWEEN_EXP_UPDATE = 200 #episodes inbetween exploration update
 
 env = Iirabm_Environment(rendering=None)
-env = gym.make("Pendulum-v0")  # Create the environment
+# env = gym.make("Pendulum-v0")  # Create the environment
 state_dim = env.observation_space.shape[0]
 action_dim = env.action_space.shape[0]
 
 
-ddpg_agent = Agent(state_size=state_dim, action_size=action_dim)
+ddpg_agent = Agent(state_size=state_dim, action_size=action_dim, noise_magnitude=STARTING_NOISE_MAG)
 
-scores = ddpg(ddpg_agent, episodes=10000, step=200, pretrained=False, display_batch_size=1)
+scores = ddpg(ddpg_agent, episodes=10000, step=1000, pretrained=False, display_batch_size=10)
 
 fig = plt.figure()
 plt.plot(np.arange(1, len(scores) + 1), scores)
