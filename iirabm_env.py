@@ -169,8 +169,8 @@ class Iirabm_Environment(gym.Env):
             DONE = 1
         if self.oxydef_history[self.current_step] > MAX_OXYDEF:
             DONE = 1
-        # if self.current_step == self.max_steps:
-        #     DONE = 1
+        if self.current_step == self.max_steps:
+            DONE = 1
         return bool(DONE)
 
     def calculate_reward(self):
