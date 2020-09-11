@@ -8,6 +8,7 @@ import random
 from collections import namedtuple, deque
 import time
 import gc
+import math
 
 import tensorflow as tf
 import tensorflow_addons as tfa
@@ -127,7 +128,7 @@ def ddpg(agent, episodes, step, pretrained, display_batch_size):
 
 
     print("Done Training")
-    print("Total Time Taken: {:f4.2} minutes".format((time.time()-total_time)/60))
+    print("Total Time Taken: {:4.2f} minutes".format((time.time()-total_time)/60))
     return reward_list
 
 # TRAINING TIME
@@ -143,8 +144,10 @@ STARTING_NOISE_MAG = .5    #initial exploration noise magnitude
 EPS_BETWEEN_EXP_UPDATE = 200 #episodes inbetween exploration update
 
 NUM_TEST_EPS = 2
-AGENT_MAX_STEPS = 2500
-env = Iirabm_Environment(rendering="human", action_repeats=4, MAX_STEPS=AGENT_MAX_STEPS)
+ENV_STEPS = 2500
+AGENT_ACTION_REPEATS = 4
+AGENT_MAX_STEPS = math.floor(ENV_STEPS/AGENT_ACTION_REPEATS)
+env = Iirabm_Environment(rendering="console", action_repeats=AGENT_ACTION_REPEATS, ENV_MAX_STEPS=ENV_STEPS)
 # env = gym.make("LunarLanderContinuous-v2")  # Create the environment
 print(env.observation_space.shape)
 print(env.action_space.shape)

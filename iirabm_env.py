@@ -25,7 +25,7 @@ globalBG = None
 
 
 MAX_OXYDEF = 8160
-MAX_STEPS = 1000
+MAX_STEPS = 10000
 NUM_CYTOKINES_CONTROLLED = 11
 NUM_OBSERVTAIONS = 3
 # OBS_VEC_SHAPE = NUM_CYTOKINES*((NUM_OBSERVTAIONS*2)-1)
@@ -51,7 +51,7 @@ class Iirabm_Environment(gym.Env):
     """Custom Environment that follows gym interface"""
     metadata = {'render.modes': ['human']}
 
-    def __init__(self, rendering=None, action_repeats=4, MAX_STEPS=MAX_STEPS):
+    def __init__(self, rendering=None, action_repeats=4, ENV_MAX_STEPS=MAX_STEPS):
         super(Iirabm_Environment, self).__init__()
 
         self.reward_range = (-250,250)
@@ -62,7 +62,7 @@ class Iirabm_Environment(gym.Env):
         self.current_step = 0
         self.rendering = rendering
         self.action_repeats = action_repeats
-        self.max_steps = MAX_STEPS
+        self.max_steps = ENV_MAX_STEPS
         self.action_space = gym.spaces.Box(
             low=-1,
             high=1,
@@ -169,7 +169,7 @@ class Iirabm_Environment(gym.Env):
             DONE = 1
         if self.oxydef_history[self.current_step] > MAX_OXYDEF:
             DONE = 1
-        if self.current_step == self.max_steps:
+        if self.current_step == MAX_STEPS:
             DONE = 1
         return bool(DONE)
 
