@@ -51,18 +51,17 @@ class Iirabm_Environment(gym.Env):
     """Custom Environment that follows gym interface"""
     metadata = {'render.modes': ['human']}
 
-    def __init__(self, rendering=None):
+    def __init__(self, rendering=None, action_repeats=4):
         super(Iirabm_Environment, self).__init__()
 
-        self.ptrToEnv = None
-        self.reward_range = (-100,100)
+        self.reward_range = (-250,250)
         self.cytokine_history = np.zeros((12,10000))
         self.cytokine_mults = np.zeros((11,1))
         self.oxydef_history = np.zeros((1,10000))
         self.action_history = np.zeros((11,10000))
         self.current_step = 0
         self.rendering = rendering
-        # Actions of the format Buy x%, Sell x%, Hold, etc.
+        self.action_repeats = action_repeats
         self.action_space = gym.spaces.Box(
             low=-1,
             high=1,
@@ -81,10 +80,10 @@ class Iirabm_Environment(gym.Env):
             shape=obs_space_high.shape,
             dtype=np.float32)
 
+        self.reset()
         if self.rendering == "human":
             print("initializing")
             self.initialize_render()
-            # self.fig, self.ax, self. line, self.bg = initialize_render()
         # Define action and observation space
         # They must be gym.spaces objects
         # Example when using discrete actions:
@@ -92,20 +91,34 @@ class Iirabm_Environment(gym.Env):
         # Example for using image as input:
         # self.observation_space = spaces.Box(low=0, high=255, shape=
         #                 (HEIGHT, WIDTH, N_CHANNELS), dtype=np.uint8)
-    def set_seed(self, new_seed):
+    def seed(self, new_seed):
         SIM.setSeed(self.ptrToEnv, new_seed)
-    def step(self, action):
-    # Execute one time step within the environment
 
+    def step(self, action):
+    # Execute one time step within the environment, repeat for number of simulation steps and return average
         action = self.take_action(action)
         self.cytokine_history = SIM.getAllSignalsReturn(self.ptrToEnv)[[0,2,3,4,5,12,13,14,15,16,17,18],:]
         self.oxydef_history = SIM.getAllSignalsReturn(self.ptrToEnv)[0,:]
         self.current_step = SIM.getSimulationStep(self.ptrToEnv)
-        # print("step: " + str(self.current_step) + ", Oxygen Deficit: " + str(np.round(SIM.getOxydef(self.ptrToEnv),0)) + ", Mults: " + str(np.round(action,2)),end="             \r")
         done = self.calculate_done()
         reward = self.calculate_reward()
         obs = self.next_observation()
         self.render(action)
+        for _ in range(self.action_repeats - 1):
+            action = self.take_action(action)
+            self.cytokine_history = SIM.getAllSignalsReturn(self.ptrToEnv)[[0,2,3,4,5,12,13,14,15,16,17,18],:]
+            self.oxydef_history = SIM.getAllSignalsReturn(self.ptrToEnv)[0,:]
+            self.current_step = SIM.getSimulationStep(self.ptrToEnv)
+            if done:
+                pass
+            else:
+                done = self.calculate_done()
+            reward += self.calculate_reward()
+            obs = np.add(obs,self.next_observation())
+            self.render(action)
+
+        obs /= self.action_repeats
+        reward /= self.action_repeats
         return obs, reward, done, {}
 
     def take_action(self,action_vector):
@@ -168,13 +181,11 @@ class Iirabm_Environment(gym.Env):
         # return_reward += 1 #bonus for staying alive per step
         if self.oxydef_history[self.current_step] < 2750:
             if self.calculate_done():
-                return_reward += 100
-                # if it lives then total +100 reward
+                return_reward += 270
 
         if self.oxydef_history[self.current_step] > 6000:
             if self.calculate_done():
-                return_reward -= 100
-                # if it dies then total -100 reward
+                return_reward -= 250
 
         return float(return_reward)
 
