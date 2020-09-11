@@ -126,7 +126,7 @@ def ddpg(agent, episodes, step, pretrained, display_batch_size):
 
 
     print("Done Training")
-    print("Total Time Taken: {:f4.2} minutes".format((time.time()-total_time)/60))
+    print("Total Time Taken: {:4.2f} minutes".format((time.time()-total_time)/60))
     return reward_list
 
 # TRAINING TIME
