@@ -5,15 +5,15 @@
 # Request some processor cores
 #SBATCH --ntasks=1
 # Request GPUs
-#SBATCH --gres=gpu:4
+#SBATCH --gres=gpu:1
 # Request memory
 #SBATCH --mem-per-cpu=200G
 #SBATCH --time=48:00:00
 # Name job
-#SBATCH --job-name=DDPG
+#SBATCH --job-name=DDPGp05XL
 
 # Name output file
-#SBATCH --output=ddpg.out
+#SBATCH --output=ddpp05XL.out
 # Set email address (for user with email "usr1234@uvm.edu")
 #SBATCH --mail-user=daleblarie@gmail.com
 # Request email to be sent at begin and end, and if fails
