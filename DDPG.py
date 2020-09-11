@@ -143,8 +143,8 @@ STARTING_NOISE_MAG = .5    #initial exploration noise magnitude
 EPS_BETWEEN_EXP_UPDATE = 200 #episodes inbetween exploration update
 
 NUM_TEST_EPS = 2
-
-env = Iirabm_Environment(rendering="human", action_repeats=20)
+AGENT_MAX_STEPS = 2500
+env = Iirabm_Environment(rendering="human", action_repeats=4, MAX_STEPS=AGENT_MAX_STEPS)
 # env = gym.make("LunarLanderContinuous-v2")  # Create the environment
 print(env.observation_space.shape)
 print(env.action_space.shape)
@@ -154,7 +154,7 @@ action_dim = env.action_space.shape[0]
 
 ddpg_agent = Agent(state_size=state_dim, action_size=action_dim, LR_ACTOR=LR_ACTOR, LR_CRITIC=LR_CRITIC, noise_magnitude=STARTING_NOISE_MAG, BUFFER_SIZE=BUFFER_SIZE, BATCH_SIZE=BATCH_SIZE, GAMMA=GAMMA, TAU=TAU)
 
-scores = ddpg(ddpg_agent, episodes=10000, step=5000, pretrained=False, display_batch_size=20)
+scores = ddpg(ddpg_agent, episodes=10000, step=AGENT_MAX_STEPS, pretrained=False, display_batch_size=20)
 
 fig = plt.figure()
 plt.plot(np.arange(1, len(scores) + 1), scores)

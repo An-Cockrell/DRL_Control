@@ -51,7 +51,7 @@ class Iirabm_Environment(gym.Env):
     """Custom Environment that follows gym interface"""
     metadata = {'render.modes': ['human']}
 
-    def __init__(self, rendering=None, action_repeats=4):
+    def __init__(self, rendering=None, action_repeats=4, MAX_STEPS=MAX_STEPS):
         super(Iirabm_Environment, self).__init__()
 
         self.reward_range = (-250,250)
@@ -62,6 +62,7 @@ class Iirabm_Environment(gym.Env):
         self.current_step = 0
         self.rendering = rendering
         self.action_repeats = action_repeats
+        self.max_steps = MAX_STEPS
         self.action_space = gym.spaces.Box(
             low=-1,
             high=1,
@@ -104,21 +105,21 @@ class Iirabm_Environment(gym.Env):
         reward = self.calculate_reward()
         obs = self.next_observation()
         self.render(action)
-        for _ in range(self.action_repeats - 1):
+        for num_repeats in range(self.action_repeats - 1):
+            if done:
+                break
             action = self.take_action(action)
             self.cytokine_history = SIM.getAllSignalsReturn(self.ptrToEnv)[[0,2,3,4,5,12,13,14,15,16,17,18],:]
             self.oxydef_history = SIM.getAllSignalsReturn(self.ptrToEnv)[0,:]
             self.current_step = SIM.getSimulationStep(self.ptrToEnv)
-            if done:
-                pass
-            else:
-                done = self.calculate_done()
+
+            done = self.calculate_done()
             reward += self.calculate_reward()
             obs = np.add(obs,self.next_observation())
             self.render(action)
 
-        obs /= self.action_repeats
-        reward /= self.action_repeats
+        obs /= num_repeats+1
+        reward /= num_repeats+1
         return obs, reward, done, {}
 
     def take_action(self,action_vector):
@@ -168,8 +169,8 @@ class Iirabm_Environment(gym.Env):
             DONE = 1
         if self.oxydef_history[self.current_step] > MAX_OXYDEF:
             DONE = 1
-        if self.current_step == MAX_STEPS:
-            DONE = 1
+        # if self.current_step == self.max_steps:
+        #     DONE = 1
         return bool(DONE)
 
     def calculate_reward(self):
@@ -219,9 +220,9 @@ class Iirabm_Environment(gym.Env):
             plt.pause(.00000001)
 
     def initialize_render(self):
-        plotx = np.array(range(MAX_STEPS))
+        plotx = np.array(range(self.max_steps))
         print(plotx.shape)
-        ploty = np.zeros((MAX_STEPS-1))
+        ploty = np.zeros((self.max_steps-1))
         ploty = np.append(ploty,MAX_OXYDEF)
         self.fig, self.ax = plt.subplots()
         self.ax.set_title("Agent Oxygen Deficit Path")
@@ -231,7 +232,7 @@ class Iirabm_Environment(gym.Env):
         self.ax.axhspan(0, 2750, facecolor='green', alpha=0.4)
         self.ax.axhspan(2750, 6000, facecolor='yellow', alpha=0.4)
         self.ax.axhspan(6000, MAX_OXYDEF, facecolor='red', alpha=0.4)
-        self.ax.set_xlim(-10,MAX_STEPS)
+        self.ax.set_xlim(-10,self.max_steps)
         self.ax.set_ylim(0,MAX_OXYDEF)
         plt.show(block=False)
         plt.pause(0.0001)
