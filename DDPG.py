@@ -44,6 +44,7 @@ def ddpg(agent, episodes, step, pretrained, display_batch_size):
         TESTING = True
 
     for current_episode in range(1, episodes):
+        print(current_episode, end="\r")
         env.seed(0)
         state = env.reset()
         current_step = 1
@@ -162,7 +163,7 @@ action_dim = env.action_space.shape[0]
 
 ddpg_agent = Agent(state_size=state_dim, action_size=action_dim, LR_ACTOR=LR_ACTOR, LR_CRITIC=LR_CRITIC, noise_magnitude=STARTING_NOISE_MAG, BUFFER_SIZE=BUFFER_SIZE, BATCH_SIZE=BATCH_SIZE, GAMMA=GAMMA, TAU=TAU)
 
-scores = ddpg(ddpg_agent, episodes=10000, step=AGENT_MAX_STEPS, pretrained=False, display_batch_size=1)
+scores = ddpg(ddpg_agent, episodes=10000, step=AGENT_MAX_STEPS, pretrained=False, display_batch_size=20)
 
 fig = plt.figure()
 plt.plot(np.arange(1, len(scores) + 1), scores)
