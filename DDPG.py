@@ -97,6 +97,7 @@ def ddpg(agent, episodes, step, pretrained, display_batch_size):
                     # print("HIGHS: {:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f}".format(*output_range[1,:]))
 
                     # print("Real reward: {:4.0f}, Q_score: {:4.0f}, Difference: {:4.0f}".format(score, Q_score, score-Q_score))
+                    print()
                     running_score = temp_score
                     Q_score = 0
                     agent.reset_timers()
