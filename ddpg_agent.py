@@ -9,7 +9,7 @@ from tensorflow.keras import backend as K
 from noise_processes import *
 from replay_buffer import ReplayBuffer
 
-
+kernel_init = tf.keras.initializers.RandomNormal(stddev=0.001)
 
 def output_activation(x):
     # function to scale tanh activation to be 1-10 if x>0 or 0-1 if x < 0
@@ -23,13 +23,12 @@ def actor_network(obs_size, action_size):
     num_hidden3 = 200
     input = tf.keras.layers.Input(shape=obs_size)
 
-    hidden = layers.Dense(num_hidden1, activation="relu")(input)
-    hidden = layers.BatchNormalization()(hidden)
-    hidden = layers.Dense(num_hidden2, activation="relu")(hidden)
+    hidden = layers.Dense(num_hidden1, activation="relu", kernel_initializer=kernel_init)(input)
+    hidden = layers.Dense(num_hidden2, activation="relu",kernel_initializer=kernel_init)(hidden)
     # hidden = layers.BatchNormalization()(hidden)
     # hidden = layers.Dense(num_hidden3, activation="relu")(hidden)
 
-    output = layers.Dense(action_size, activation='tanh',kernel_initializer='random_normal')(hidden)
+    output = layers.Dense(action_size, activation='tanh',kernel_initializer=kernel_init)(hidden)
 
     model = tf.keras.Model(input, output)
     return model
@@ -42,24 +41,19 @@ def critic_network(obs_size, action_size):
 
     # State as input
     state_input = layers.Input(shape=(obs_size))
-    state_out = layers.Dense(state_hidden, activation="relu")(state_input)
-    state_out = layers.BatchNormalization()(state_out)
-    state_out = layers.Dense(state_hidden*2, activation="relu")(state_out)
-    state_out = layers.BatchNormalization()(state_out)
+    state_out = layers.Dense(state_hidden, activation="relu",kernel_initializer=kernel_init)(state_input)
+    state_out = layers.Dense(state_hidden*2, activation="relu",kernel_initializer=kernel_init)(state_out)
 
     # Action as input
     action_input = layers.Input(shape=(action_size))
-    action_out = layers.Dense(action_hidden, activation="relu")(action_input)
-    action_out = layers.BatchNormalization()(action_out)
+    action_out = layers.Dense(action_hidden, activation="relu",kernel_initializer=kernel_init)(action_input)
 
     # Both are passed through seperate layer before concatenating
     concat = layers.Concatenate()([state_out, action_out])
 
-    out = layers.Dense(output_hidden, activation="relu")(concat)
-    out = layers.BatchNormalization()(out)
-    out = layers.Dense(output_hidden, activation="relu")(out)
-    out = layers.BatchNormalization()(out)
-    output = layers.Dense(1)(out)
+    out = layers.Dense(output_hidden, activation="relu",kernel_initializer=kernel_init)(concat)
+    out = layers.Dense(output_hidden, activation="relu",kernel_initializer=kernel_init)(out)
+    output = layers.Dense(1, kernel_initializer=kernel_init)(out)
 
     # Outputs single value for give state-action
     model = tf.keras.Model([state_input, action_input], output)

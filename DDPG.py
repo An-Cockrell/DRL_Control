@@ -49,7 +49,6 @@ def ddpg(agent, episodes, step, pretrained, display_batch_size):
         current_step = 0
         output_range = None
         score = 0
-
         for _ in range(step):
             simulation_start = time.time()
             # env.render()
@@ -74,6 +73,8 @@ def ddpg(agent, episodes, step, pretrained, display_batch_size):
             if not TESTING:
                 agent.train()
 
+            if current_step == step-1:
+                done = True
             if done:
                 running_score += score
                 reward_list.append(score)
@@ -87,8 +88,8 @@ def ddpg(agent, episodes, step, pretrained, display_batch_size):
                         display_divisor = 1
                     else:
                         score = running_score
-                    print('Episode: {:4.0f} | Avg Reward last {} episodes: {:5.2f} | Avg Time last {} episodes: {:.2f} Seconds'.format(current_episode, display_divisor, score/display_divisor, display_batch_size, (time.time() - start)/display_divisor))
-                    print("Avg last {} - Selecting: {:3.2f}, Training: {:3.2f}, Updating: {:3.2f}, Simulating: {:3.2f}".format(display_divisor, agent.selecting_time/display_divisor, agent.training_time/display_divisor, agent.updating_time/display_divisor, simulation_time/display_divisor))
+                    print('Episode: {:4.0f} | Steps: {:4.0f} | Avg Reward last {} episodes: {:5.2f} | Avg Time last {} episodes: {:.2f} Seconds'.format(current_episode, current_step, display_divisor, score/display_divisor, display_batch_size, (time.time() - start)/display_divisor))
+                    print("Avg Times last {} - Selecting: {:3.2f}, Training: {:3.2f}, Updating: {:3.2f}, Simulating: {:3.2f}".format(display_divisor, agent.selecting_time/display_divisor, agent.training_time/display_divisor, agent.updating_time/display_divisor, simulation_time/display_divisor))
                     # print("LOWS:  {:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f}".format(*output_range[0,:]))
                     # print("HIGHS: {:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f}".format(*output_range[1,:]))
 
@@ -134,20 +135,20 @@ def ddpg(agent, episodes, step, pretrained, display_batch_size):
 # TRAINING TIME
 
 BUFFER_SIZE = 1000000      # replay buffer size
-BATCH_SIZE = 32        # minibatch size
 GAMMA = 0.99               # discount factor
 TAU = 0.001                # for soft update of target parameters
 LR_ACTOR = 0.0001          # learning rate of the actor
 LR_CRITIC = 0.001          # learning rate of the critic
 WEIGHT_DECAY = 0.001       # L2 weight decay
-STARTING_NOISE_MAG = .5    #initial exploration noise magnitude
-EPS_BETWEEN_EXP_UPDATE = 200 #episodes inbetween exploration update
+BATCH_SIZE = 32        # minibatch size
+STARTING_NOISE_MAG = .1    #initial exploration noise magnitude
+EPS_BETWEEN_EXP_UPDATE = 1000 #episodes inbetween exploration update
 
 NUM_TEST_EPS = 2
-ENV_STEPS = 2500
+ENV_STEPS = 4000
 AGENT_ACTION_REPEATS = 4
 AGENT_MAX_STEPS = math.floor(ENV_STEPS/AGENT_ACTION_REPEATS)
-env = Iirabm_Environment(rendering="console", action_repeats=AGENT_ACTION_REPEATS, ENV_MAX_STEPS=ENV_STEPS)
+env = Iirabm_Environment(rendering="human", action_repeats=AGENT_ACTION_REPEATS, ENV_MAX_STEPS=ENV_STEPS, action_L1=1)
 # env = gym.make("LunarLanderContinuous-v2")  # Create the environment
 print(env.observation_space.shape)
 print(env.action_space.shape)
@@ -157,7 +158,7 @@ action_dim = env.action_space.shape[0]
 
 ddpg_agent = Agent(state_size=state_dim, action_size=action_dim, LR_ACTOR=LR_ACTOR, LR_CRITIC=LR_CRITIC, noise_magnitude=STARTING_NOISE_MAG, BUFFER_SIZE=BUFFER_SIZE, BATCH_SIZE=BATCH_SIZE, GAMMA=GAMMA, TAU=TAU)
 
-scores = ddpg(ddpg_agent, episodes=10000, step=AGENT_MAX_STEPS, pretrained=False, display_batch_size=20)
+scores = ddpg(ddpg_agent, episodes=10000, step=AGENT_MAX_STEPS, pretrained=False, display_batch_size=1)
 
 fig = plt.figure()
 plt.plot(np.arange(1, len(scores) + 1), scores)

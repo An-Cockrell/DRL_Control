@@ -27,7 +27,7 @@ globalBG = None
 MAX_OXYDEF = 8160
 MAX_STEPS = 10000
 NUM_CYTOKINES_CONTROLLED = 11
-NUM_OBSERVTAIONS = 3
+NUM_OBSERVTAIONS = 1
 # OBS_VEC_SHAPE = NUM_CYTOKINES*((NUM_OBSERVTAIONS*2)-1)
 all_signals_max = np.array([8164,  250,  118, 1675,  880,  108, 4027,  730, 1232, 2204,   87,   83])
 
@@ -51,7 +51,7 @@ class Iirabm_Environment(gym.Env):
     """Custom Environment that follows gym interface"""
     metadata = {'render.modes': ['human']}
 
-    def __init__(self, rendering=None, action_repeats=4, ENV_MAX_STEPS=MAX_STEPS):
+    def __init__(self, rendering=None, action_repeats=4, ENV_MAX_STEPS=MAX_STEPS, action_L1=None):
         super(Iirabm_Environment, self).__init__()
 
         self.reward_range = (-250,250)
@@ -60,6 +60,8 @@ class Iirabm_Environment(gym.Env):
         self.oxydef_history = np.zeros((1,10000))
         self.action_history = np.zeros((11,10000))
         self.current_step = 0
+        self.RL_step = 0
+        self.action_L1 = action_L1
         self.rendering = rendering
         self.action_repeats = action_repeats
         self.max_steps = ENV_MAX_STEPS
@@ -97,12 +99,13 @@ class Iirabm_Environment(gym.Env):
 
     def step(self, action):
     # Execute one time step within the environment, repeat for number of simulation steps and return average
+        self.RL_step += 1
         action = self.take_action(action)
         self.cytokine_history = SIM.getAllSignalsReturn(self.ptrToEnv)[[0,2,3,4,5,12,13,14,15,16,17,18],:]
         self.oxydef_history = SIM.getAllSignalsReturn(self.ptrToEnv)[0,:]
         self.current_step = SIM.getSimulationStep(self.ptrToEnv)
         done = self.calculate_done()
-        reward = self.calculate_reward()
+        reward = self.calculate_reward(action)
         obs = self.next_observation()
         self.render(action)
         for num_repeats in range(self.action_repeats - 1):
@@ -118,8 +121,8 @@ class Iirabm_Environment(gym.Env):
             obs = np.add(obs,self.next_observation())
             self.render(action)
 
-        obs /= num_repeats+1
-        reward /= num_repeats+1
+        # obs /= num_repeats+1
+        # reward /= num_repeats+1
         return obs, reward, done, {}
 
     def take_action(self,action_vector):
@@ -173,20 +176,29 @@ class Iirabm_Environment(gym.Env):
             DONE = 1
         return bool(DONE)
 
-    def calculate_reward(self):
+    def calculate_reward(self, action):
         return_reward = 0
-        if self.current_step > 100:
-            # negative change from last step ie oxydef goes down reward goes up
-            return_reward = self.oxydef_history[self.current_step-1] - self.oxydef_history[self.current_step]
-
+        reward_mult = 0.99 ** self.RL_step
         # return_reward += 1 #bonus for staying alive per step
         if self.oxydef_history[self.current_step] < 2750:
             if self.calculate_done():
-                return_reward += 270
-
+                return 250 * reward_mult
         if self.oxydef_history[self.current_step] > 6000:
             if self.calculate_done():
-                return_reward -= 250
+                return -250 * reward_mult
+
+
+        phi = -self.oxydef_history[self.current_step]
+
+        if self.phi_prev is not None:
+            potential_difference = phi - self.phi_prev
+        else:
+            potential_difference = 0
+        self.phi_prev = phi
+        return_reward += potential_difference
+
+        if self.action_L1 is not None:
+            return_reward -= self._action_l1*np.linalg.norm(action, ord=1) # L1 penalty
 
         return float(return_reward)
 
@@ -199,6 +211,8 @@ class Iirabm_Environment(gym.Env):
         self.cytokine_history = SIM.getAllSignalsReturn(self.ptrToEnv)[[0,2,3,4,5,12,13,14,15,16,17,18],:]
         self.oxydef_history = SIM.getAllSignalsReturn(self.ptrToEnv)[0,:]
         self.current_step = SIM.getSimulationStep(self.ptrToEnv)
+        self.RL_step = 0
+        self.phi_prev = None # Starts at None so each episode's first reward doesn't include a potential function.
 
         return self.next_observation()
 
