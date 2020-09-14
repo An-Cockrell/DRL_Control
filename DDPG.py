@@ -33,7 +33,7 @@ def ddpg(agent, episodes, step, pretrained, display_batch_size):
     score = 0
     Q_score = 0
     simulation_time = 0
-
+    step_total = 0
     print("\n\n\nTHIS VERSION LEARNS WHILE PLAYING\n\n\n")
 
     if pretrained:
@@ -61,6 +61,7 @@ def ddpg(agent, episodes, step, pretrained, display_batch_size):
 
             next_state, reward, done, info = env.step(action[0])
             current_step += 1
+            step_total += 1
             # print(reward)
             # if current_step > 100: # after the burn in period, then start learning. Also so we dont add step < 100 to memory
             agent.step(state, action, reward, next_state, done)
@@ -82,13 +83,15 @@ def ddpg(agent, episodes, step, pretrained, display_batch_size):
                 if current_episode % display_batch_size==0 or TESTING:
                     display_divisor = display_batch_size
                     temp_score = 0
+                    temp_step = 0
                     if TESTING:
                         print("TESTING -- TESTING -- TESTING -- TESTING")
                         temp_score = running_score
+                        temp_step = step_total
                         display_divisor = 1
                     else:
                         score = running_score
-                    print('Episode: {:4.0f} | Steps: {:4.0f} | Avg Reward last {} episodes: {:5.2f} | Avg Time last {} episodes: {:.2f} Seconds'.format(current_episode, current_step, display_divisor, score/display_divisor, display_batch_size, (time.time() - start)/display_divisor))
+                    print('Episode: {:4.0f} | Steps: {:4.0f} | Avg Reward last {} episodes: {:5.2f} | Avg Time last {} episodes: {:.2f} Seconds'.format(current_episode, step_total/display_divisor, display_divisor, score/display_divisor, display_batch_size, (time.time() - start)/display_divisor))
                     print("Avg Times last {} - Selecting: {:3.2f}, Training: {:3.2f}, Updating: {:3.2f}, Simulating: {:3.2f}".format(display_divisor, agent.selecting_time/display_divisor, agent.training_time/display_divisor, agent.updating_time/display_divisor, simulation_time/display_divisor))
                     # print("LOWS:  {:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f}".format(*output_range[0,:]))
                     # print("HIGHS: {:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f}".format(*output_range[1,:]))
@@ -99,7 +102,7 @@ def ddpg(agent, episodes, step, pretrained, display_batch_size):
                     agent.reset_timers()
                     start = time.time()
                     simulation_time = 0
-
+                    step_total = temp_step
                 if random_explore and current_episode > -1:
                     random_explore = False
                     print("USING AGENT ACTIONS NOW")
