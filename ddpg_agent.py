@@ -19,7 +19,7 @@ def output_activation(x):
 
 def actor_network(obs_size, action_size):
     num_hidden1 = 400
-    num_hidden2 = 200
+    num_hidden2 = 300
     num_hidden3 = 200
     input = tf.keras.layers.Input(shape=obs_size)
 
@@ -35,25 +35,24 @@ def actor_network(obs_size, action_size):
 
 
 def critic_network(obs_size, action_size):
-    state_hidden = 300
-    action_hidden = 300
-    output_hidden = 600
+    state_hidden = 400
+    action_hidden = 400
+    output_hidden = 300
 
     # State as input
     state_input = layers.Input(shape=(obs_size))
     state_out = layers.Dense(state_hidden, activation="relu",kernel_initializer=kernel_init)(state_input)
-    state_out = layers.Dense(state_hidden*2, activation="relu",kernel_initializer=kernel_init)(state_out)
 
     # Action as input
     action_input = layers.Input(shape=(action_size))
+    # action_out = action_input
     action_out = layers.Dense(action_hidden, activation="relu",kernel_initializer=kernel_init)(action_input)
 
     # Both are passed through seperate layer before concatenating
     concat = layers.Concatenate()([state_out, action_out])
 
-    out = layers.Dense(output_hidden, activation="relu",kernel_initializer=kernel_init)(concat)
     out = layers.Dense(output_hidden, activation="relu",kernel_initializer=kernel_init)(out)
-    output = layers.Dense(1, kernel_initializer=kernel_init)(out)
+    output = layers.Dense(1, activation="tanh", kernel_initializer=kernel_init)(out)
 
     # Outputs single value for give state-action
     model = tf.keras.Model([state_input, action_input], output)
