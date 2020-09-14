@@ -198,7 +198,7 @@ class Iirabm_Environment(gym.Env):
         return_reward += potential_difference
 
         if self.action_L1 is not None:
-            return_reward -= self._action_l1*np.linalg.norm(action, ord=1) # L1 penalty
+            return_reward -= self.action_L1*np.linalg.norm(action, ord=1) # L1 penalty
 
         return float(return_reward)
 
