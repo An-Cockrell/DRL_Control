@@ -89,6 +89,7 @@ def ddpg(agent, episodes, step, pretrained, display_batch_size):
                         print("TESTING -- TESTING -- TESTING -- TESTING")
                         temp_score = running_score
                         temp_step = step_total
+                        step_total = current_step
                         display_divisor = 1
                     else:
                         score = running_score
