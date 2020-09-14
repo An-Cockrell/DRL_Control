@@ -27,7 +27,7 @@ globalBG = None
 MAX_OXYDEF = 8160
 MAX_STEPS = 10000
 NUM_CYTOKINES_CONTROLLED = 11
-NUM_OBSERVTAIONS = 1
+NUM_OBSERVTAIONS = 4
 # OBS_VEC_SHAPE = NUM_CYTOKINES*((NUM_OBSERVTAIONS*2)-1)
 all_signals_max = np.array([8164,  250,  118, 1675,  880,  108, 4027,  730, 1232, 2204,   87,   83])
 
@@ -117,7 +117,7 @@ class Iirabm_Environment(gym.Env):
             self.current_step = SIM.getSimulationStep(self.ptrToEnv)
 
             done = self.calculate_done()
-            reward += self.calculate_reward()
+            reward += self.calculate_reward(action)
             obs = np.add(obs,self.next_observation())
             self.render(action)
 
@@ -178,7 +178,7 @@ class Iirabm_Environment(gym.Env):
 
     def calculate_reward(self, action):
         return_reward = 0
-        reward_mult = 0.99 ** self.RL_step
+        reward_mult = 0.999 ** self.RL_step
         # return_reward += 1 #bonus for staying alive per step
         if self.oxydef_history[self.current_step] < 2750:
             if self.calculate_done():
