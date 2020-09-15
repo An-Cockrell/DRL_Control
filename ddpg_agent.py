@@ -51,7 +51,7 @@ def critic_network(obs_size, action_size):
     # Both are passed through seperate layer before concatenating
     concat = layers.Concatenate()([state_out, action_out])
 
-    out = layers.Dense(output_hidden, activation="relu",kernel_initializer=kernel_init)(out)
+    out = layers.Dense(output_hidden, activation="relu",kernel_initializer=kernel_init)(concat)
     output = layers.Dense(1, activation="tanh", kernel_initializer=kernel_init)(out)
 
     # Outputs single value for give state-action
