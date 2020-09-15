@@ -46,10 +46,10 @@ def critic_network(obs_size, action_size):
     # Action as input
     action_input = layers.Input(shape=(action_size))
     # action_out = action_input
-    action_out = layers.Dense(action_hidden, activation="relu",kernel_initializer=kernel_init)(action_input)
+    # action_out = layers.Dense(action_hidden, activation="relu",kernel_initializer=kernel_init)(action_input)
 
     # Both are passed through seperate layer before concatenating
-    concat = layers.Concatenate()([state_out, action_out])
+    concat = layers.Concatenate()([state_out, action_input])
 
     out = layers.Dense(output_hidden, activation="relu",kernel_initializer=kernel_init)(concat)
     output = layers.Dense(1, activation="tanh", kernel_initializer=kernel_init)(out)
