@@ -146,15 +146,15 @@ TAU = 0.001                # for soft update of target parameters
 LR_ACTOR = 0.0001          # learning rate of the actor
 LR_CRITIC = 0.001          # learning rate of the critic
 WEIGHT_DECAY = 0.001       # L2 weight decay
-BATCH_SIZE = 32        # minibatch size
+BATCH_SIZE = 64        # minibatch size
 STARTING_NOISE_MAG = .1    #initial exploration noise magnitude
-EPS_BETWEEN_EXP_UPDATE = 1000 #episodes inbetween exploration update
+EPS_BETWEEN_EXP_UPDATE = 500 #episodes inbetween exploration update
 
 NUM_TEST_EPS = 2
 ENV_STEPS = 4000
 AGENT_ACTION_REPEATS = 4
 AGENT_MAX_STEPS = math.floor(ENV_STEPS/AGENT_ACTION_REPEATS)
-env = Iirabm_Environment(rendering=None, action_repeats=AGENT_ACTION_REPEATS, ENV_MAX_STEPS=ENV_STEPS, action_L1=0.01)
+env = Iirabm_Environment(rendering="console", action_repeats=AGENT_ACTION_REPEATS, ENV_MAX_STEPS=ENV_STEPS, action_L1=0.01)
 # env = gym.make("LunarLanderContinuous-v2")  # Create the environment
 print(env.observation_space.shape)
 print(env.action_space.shape)
