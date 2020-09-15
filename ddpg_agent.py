@@ -52,7 +52,7 @@ def critic_network(obs_size, action_size):
     concat = layers.Concatenate()([state_out, action_input])
 
     out = layers.Dense(output_hidden, activation="relu",kernel_initializer=kernel_init)(concat)
-    output = layers.Dense(1, activation="tanh", kernel_initializer=kernel_init)(out)
+    output = layers.Dense(1, kernel_initializer=kernel_init)(out)
 
     # Outputs single value for give state-action
     model = tf.keras.Model([state_input, action_input], output)

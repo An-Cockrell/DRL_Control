@@ -51,7 +51,7 @@ class Iirabm_Environment(gym.Env):
     """Custom Environment that follows gym interface"""
     metadata = {'render.modes': ['human']}
 
-    def __init__(self, rendering=None, action_repeats=4, ENV_MAX_STEPS=MAX_STEPS, action_L1=None, potential_difference_mult=None):
+    def __init__(self, rendering=None, action_repeats=4, ENV_MAX_STEPS=MAX_STEPS, action_L1=None, potential_difference_mult=None, phi_mult=1):
         super(Iirabm_Environment, self).__init__()
 
         self.reward_range = (-250,250)
@@ -62,6 +62,7 @@ class Iirabm_Environment(gym.Env):
         self.current_step = 0
         self.RL_step = 0
         self.action_L1 = action_L1
+        self.phi_mult = phi_mult
         self.potential_difference_mult = potential_difference_mult
         self.rendering = rendering
         self.action_repeats = action_repeats
@@ -192,7 +193,7 @@ class Iirabm_Environment(gym.Env):
                 return -250 * reward_mult
 
 
-        phi = -self.oxydef_history[self.current_step]
+        phi = self.phi_mult * -self.oxydef_history[self.current_step]/(101*101)
 
         if self.phi_prev is not None and self.potential_difference_mult is not None:
             potential_difference = self.potential_difference_mult*(phi - self.phi_prev)
