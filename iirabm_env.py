@@ -34,7 +34,7 @@ all_signals_max = np.array([8164,  250,  118, 1675,  880,  108, 4027,  730, 1232
 
 SIM = wrapper_setup.setUpWrapper()
 
-def createIIRABM(OH=.05, IS=4, NRI=2, NIR=2, injNum=27, seed=1, numCytokines=9):
+def createIIRABM(OH, IS, NRI, NIR, injNum, seed, numCytokines):
     oxyHeal = ctypes.c_float(OH)
     IS = ctypes.c_int(IS)
     NRI = ctypes.c_int(NRI)
@@ -51,7 +51,7 @@ class Iirabm_Environment(gym.Env):
     """Custom Environment that follows gym interface"""
     metadata = {'render.modes': ['human']}
 
-    def __init__(self, rendering=None, action_repeats=4, ENV_MAX_STEPS=MAX_STEPS, action_L1=None):
+    def __init__(self, rendering=None, action_repeats=4, ENV_MAX_STEPS=MAX_STEPS, action_L1=None, potential_difference_mult=None):
         super(Iirabm_Environment, self).__init__()
 
         self.reward_range = (-250,250)
@@ -62,6 +62,7 @@ class Iirabm_Environment(gym.Env):
         self.current_step = 0
         self.RL_step = 0
         self.action_L1 = action_L1
+        self.potential_difference_mult = potential_difference_mult
         self.rendering = rendering
         self.action_repeats = action_repeats
         self.max_steps = ENV_MAX_STEPS
@@ -183,29 +184,31 @@ class Iirabm_Environment(gym.Env):
         return_reward = 0
         reward_mult = 0.999 ** self.RL_step
         # return_reward += 1 #bonus for staying alive per step
-        if self.oxydef_history[self.current_step] < 2750:
+        if self.oxydef_history[self.current_step] < 10:
             if self.calculate_done():
                 return 250 * reward_mult
-        if self.oxydef_history[self.current_step] > 6000:
+        if self.oxydef_history[self.current_step] > 8100:
             if self.calculate_done():
                 return -250 * reward_mult
 
 
         phi = -self.oxydef_history[self.current_step]
 
-        if self.phi_prev is not None:
-            potential_difference = phi - self.phi_prev
+        if self.phi_prev is not None and self.potential_difference_mult is not None:
+            potential_difference = self.potential_difference_mult*(phi - self.phi_prev)
+            # print("potential difference: " + str(potential_difference))
         else:
             potential_difference = 0
         self.phi_prev = phi
         return_reward += potential_difference
 
         if self.action_L1 is not None:
+            # print("L1 penalty: " + str(self.action_L1*np.linalg.norm(action, ord=1)))
             return_reward -= self.action_L1*np.linalg.norm(action, ord=1) # L1 penalty
 
         return float(return_reward)
 
-    def reset(self, OH=.05, IS=4, NRI=2, NIR=2, injNum=27, seed=0, numCytokines=9):
+    def reset(self, OH=.08, IS=4, NRI=2, NIR=2, injNum=27, seed=0, numCytokines=9):
     # Reset the state of the environment to an initial state
         # del self.ptrToEnv
         self.ptrToEnv = createIIRABM(OH, IS, NRI, NIR, injNum, seed, numCytokines)

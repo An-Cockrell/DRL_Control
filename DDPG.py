@@ -45,8 +45,8 @@ def ddpg(agent, episodes, step, pretrained, display_batch_size):
 
     for current_episode in range(1, episodes):
         print(current_episode, end="\r")
-        env.seed(0)
-        state = env.reset()
+        # env.seed(current_episode)
+        state = env.reset(seed = current_episode)
         current_step = 1
         output_range = None
         score = 0
@@ -59,6 +59,7 @@ def ddpg(agent, episodes, step, pretrained, display_batch_size):
                 action = tf.expand_dims(action, axis=0)
             else:
                 action = agent.act(state, training = not TESTING)
+            action = tf.expand_dims(np.array([0,0,0,0,0,0,0,0,0,0,0]),0)
 
             next_state, reward, done, info = env.step(action[0])
             current_step += 1
@@ -154,7 +155,7 @@ NUM_TEST_EPS = 2
 ENV_STEPS = 4000
 AGENT_ACTION_REPEATS = 4
 AGENT_MAX_STEPS = math.floor(ENV_STEPS/AGENT_ACTION_REPEATS)
-env = Iirabm_Environment(rendering="console", action_repeats=AGENT_ACTION_REPEATS, ENV_MAX_STEPS=ENV_STEPS, action_L1=0.01)
+env = Iirabm_Environment(rendering="human", action_repeats=AGENT_ACTION_REPEATS, ENV_MAX_STEPS=ENV_STEPS, action_L1=0.1, potential_difference_mult=0.1)
 # env = gym.make("LunarLanderContinuous-v2")  # Create the environment
 print(env.observation_space.shape)
 print(env.action_space.shape)
