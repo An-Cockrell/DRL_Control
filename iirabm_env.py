@@ -25,7 +25,7 @@ globalBG = None
 
 
 MAX_OXYDEF = 8160
-MAX_STEPS = 10000
+MAX_STEPS = 9999
 NUM_CYTOKINES_CONTROLLED = 11
 NUM_OBSERVTAIONS = 4
 # OBS_VEC_SHAPE = NUM_CYTOKINES*((NUM_OBSERVTAIONS*2)-1)
@@ -34,14 +34,14 @@ all_signals_max = np.array([8164,  250,  118, 1675,  880,  108, 4027,  730, 1232
 
 SIM = wrapper_setup.setUpWrapper()
 
-def createIIRABM():
-    oxyHeal = ctypes.c_float(.05)
-    IS = ctypes.c_int(4)
-    NRI = ctypes.c_int(2)
-    NIR = ctypes.c_int(2)
-    injNum = ctypes.c_int(27)
-    seed = ctypes.c_int(1)
-    numCytokines = ctypes.c_int(9)
+def createIIRABM(OH=.05, IS=4, NRI=2, NIR=2, injNum=27, seed=1, numCytokines=9):
+    oxyHeal = ctypes.c_float(OH)
+    IS = ctypes.c_int(IS)
+    NRI = ctypes.c_int(NRI)
+    NIR = ctypes.c_int(NIR)
+    injNum = ctypes.c_int(injNum)
+    seed = ctypes.c_int(seed)
+    numCytokines = ctypes.c_int(numCytokines)
     internalParameterization = np.array(
         [1, 1, 1, 1, 1, 1, 1, 1, 1], dtype=np.float32)
     instance = SIM.CreateInstance(oxyHeal,IS,NRI,NIR,injNum,seed,numCytokines, internalParameterization.ctypes.data_as(ctypes.POINTER(ctypes.c_float)))
@@ -100,6 +100,7 @@ class Iirabm_Environment(gym.Env):
     def step(self, action):
     # Execute one time step within the environment, repeat for number of simulation steps and return average
         self.RL_step += 1
+        dead = False
         action = self.take_action(action)
         self.cytokine_history = SIM.getAllSignalsReturn(self.ptrToEnv)[[0,2,3,4,5,12,13,14,15,16,17,18],:]
         self.oxydef_history = SIM.getAllSignalsReturn(self.ptrToEnv)[0,:]
@@ -110,6 +111,8 @@ class Iirabm_Environment(gym.Env):
         self.render(action)
         for num_repeats in range(self.action_repeats - 1):
             if done:
+                if self.oxydef_history[self.current_step] > MAX_OXYDEF:
+                    dead = True
                 break
             action = self.take_action(action)
             self.cytokine_history = SIM.getAllSignalsReturn(self.ptrToEnv)[[0,2,3,4,5,12,13,14,15,16,17,18],:]
@@ -123,7 +126,7 @@ class Iirabm_Environment(gym.Env):
 
         # obs /= num_repeats+1
         # reward /= num_repeats+1
-        return obs, reward, done, {}
+        return obs, reward, done, {"Dead":dead}
 
     def take_action(self,action_vector):
         action_vector = np.squeeze(action_vector)
@@ -202,11 +205,11 @@ class Iirabm_Environment(gym.Env):
 
         return float(return_reward)
 
-    def reset(self):
+    def reset(self, OH=.05, IS=4, NRI=2, NIR=2, injNum=27, seed=0, numCytokines=9):
     # Reset the state of the environment to an initial state
         # del self.ptrToEnv
-        self.ptrToEnv = createIIRABM()
-        for i in range(NUM_OBSERVTAIONS+5):
+        self.ptrToEnv = createIIRABM(OH, IS, NRI, NIR, injNum, seed, numCytokines)
+        for i in range(NUM_OBSERVTAIONS+100):
             SIM.singleStep(self.ptrToEnv)
         self.cytokine_history = SIM.getAllSignalsReturn(self.ptrToEnv)[[0,2,3,4,5,12,13,14,15,16,17,18],:]
         self.oxydef_history = SIM.getAllSignalsReturn(self.ptrToEnv)[0,:]
