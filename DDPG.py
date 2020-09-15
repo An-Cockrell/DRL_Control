@@ -59,7 +59,7 @@ def ddpg(agent, episodes, step, pretrained, display_batch_size):
                 action = tf.expand_dims(action, axis=0)
             else:
                 action = agent.act(state, training = not TESTING)
-            action = tf.expand_dims(np.array([0,0,0,0,0,0,0,0,0,0,0]),0)
+            # action = tf.expand_dims(np.array([0,0,0,0,0,0,0,0,0,0,0]),0)
 
             next_state, reward, done, info = env.step(action[0])
             current_step += 1
