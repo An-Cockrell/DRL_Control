@@ -27,10 +27,13 @@ globalBG = None
 MAX_OXYDEF = 8160
 MAX_STEPS = 9999
 NUM_CYTOKINES_CONTROLLED = 11
-NUM_OBSERVTAIONS = 4
+NUM_OBSERVTAIONS = 1
 # OBS_VEC_SHAPE = NUM_CYTOKINES*((NUM_OBSERVTAIONS*2)-1)
-all_signals_max = np.array([8164,  250,  118, 1675,  880,  108, 4027,  730, 1232, 2204,   87,   83])
-
+# all_signals_max = np.array([8164, 250, 118, 1675, 880, 108, 4027, 730, 1232, 2204, 87, 83])
+all_signals_max = np.array([4230, 60, 15, 150, 120, 15, 200, 60, 70, 100, 20, 10])
+# all_signals_max = np.array([3500, 60, 20, 200, 200, 10, 175, 65, 80, 100, 20, 10])
+# estimated_max = np.array(  [3000, 10, 50, 150, 50, 100, 100, 5, 150, 1000, 100, 200], dtype=np.float64)
+#         self.cytokine_history = SIM.getAllSignalsReturn(self.ptrToEnv)[[0,2,3,4,5,12,13,14,15,16,17,18],:]
 
 SIM = wrapper_setup.setUpWrapper()
 
@@ -72,16 +75,20 @@ class Iirabm_Environment(gym.Env):
             high=1,
             shape=(NUM_CYTOKINES_CONTROLLED,),
             dtype=np.float32)
-        obs_max = np.hstack([1,all_signals_max[1:]])
-        obs_space_high = np.array(obs_max)
+        obs_max = all_signals_max
+        self.input_offset = (obs_max)/2
+        self.input_scale = (obs_max)/2
+        obs_space_high = np.zeros(12)
+        obs_space_high[0] = 101*101
+        obs_space_high[1:] = np.inf
+        obs_max = obs_space_high
+
         # for i in range(NUM_OBSERVTAIONS-1):
         #     obs_space_high = np.hstack((obs_space_high, np.array([10,10,10,10,10,10,10,10,10,10,10])))
         for i in range(NUM_OBSERVTAIONS-1):
             obs_space_high = np.vstack((obs_space_high,obs_max))
-        print(obs_space_high)
         obs_space_high = obs_space_high.T.flatten()
         print(obs_space_high.shape)
-        print(obs_space_high)
         self.observation_space = gym.spaces.Box(
             low=0,
             high=obs_space_high,
@@ -177,12 +184,15 @@ class Iirabm_Environment(gym.Env):
 
     def next_observation(self):
         cytokines = self.cytokine_history[:,self.current_step-NUM_OBSERVTAIONS:self.current_step]
+
         # print("cytokines")
         # print(cytokines)
         observation = cytokines
-        observation[0,:] = observation[0,:]/self.observation_space.high[0]
-        # for i in range(observation.shape[0]):
-        #     observation[i,:] = observation[i,:] / self.observation_space.high[i]
+        # print(observation.shape)
+        # observation = (observation - self.input_offset)/self.input_scale
+        # observation[0,:] = observation[0,:]/self.observation_space.high[0]
+        for i in range(observation.shape[1]):
+            observation[:,i] = (observation[:,i] - self.input_offset)/self.input_scale
         observation = observation.flatten()
         # print(observation)
         return observation

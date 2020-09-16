@@ -48,9 +48,9 @@ def ddpg(agent, episodes, step, pretrained, display_batch_size):
         TESTING = True
 
     for current_episode in range(episodes):
-        print(current_episode, end="\r")
+        # print(current_episode, end="\r")
         # env.seed(current_episode)
-        state = env.reset(seed = current_episode)
+        state = env.reset(seed = 8)
         current_step = 1
         output_range = None
         score = 0
@@ -83,6 +83,7 @@ def ddpg(agent, episodes, step, pretrained, display_batch_size):
             if current_step == step:
                 done = True
             if done:
+
                 running_score += score
                 reward_list.append(score)
                 oxydef_total += info["oxydef"]
@@ -92,6 +93,7 @@ def ddpg(agent, episodes, step, pretrained, display_batch_size):
                     heal_count += 1
                 if info["timeout"] or current_step == step:
                     timeout_count += 1
+                # print(death_count, heal_count, timeout_count)
                 if current_episode % display_batch_size==0 or TESTING:
                     display_divisor = display_batch_size
                     temp_score = 0
@@ -162,14 +164,14 @@ LR_ACTOR = 0.0001          # learning rate of the actor
 LR_CRITIC = 0.001          # learning rate of the critic
 WEIGHT_DECAY = 0.001       # L2 weight decay
 BATCH_SIZE = 64        # minibatch size
-STARTING_NOISE_MAG = .2    #initial exploration noise magnitude
-EPS_BETWEEN_EXP_UPDATE = 500 #episodes inbetween exploration update
+STARTING_NOISE_MAG = .1    #initial exploration noise magnitude
+EPS_BETWEEN_EXP_UPDATE = 1000 #episodes inbetween exploration update
 
 NUM_TEST_EPS = 2
 ENV_STEPS = 4000
 AGENT_ACTION_REPEATS = 4
 AGENT_MAX_STEPS = math.floor(ENV_STEPS/AGENT_ACTION_REPEATS)
-env = Iirabm_Environment(rendering=None, action_repeats=AGENT_ACTION_REPEATS, ENV_MAX_STEPS=ENV_STEPS, action_L1=None, potential_difference_mult=25, phi_mult = 100)
+env = Iirabm_Environment(rendering=None, action_repeats=AGENT_ACTION_REPEATS, ENV_MAX_STEPS=ENV_STEPS, action_L1=0.1, potential_difference_mult=100, phi_mult = 100)
 # env = gym.make("LunarLanderContinuous-v2")  # Create the environment
 print(env.observation_space.shape)
 print(env.action_space.shape)
@@ -179,7 +181,7 @@ action_dim = env.action_space.shape[0]
 
 ddpg_agent = Agent(state_size=state_dim, action_size=action_dim, LR_ACTOR=LR_ACTOR, LR_CRITIC=LR_CRITIC, noise_magnitude=STARTING_NOISE_MAG, BUFFER_SIZE=BUFFER_SIZE, BATCH_SIZE=BATCH_SIZE, GAMMA=GAMMA, TAU=TAU)
 
-scores = ddpg(ddpg_agent, episodes=10000, step=AGENT_MAX_STEPS, pretrained=False, display_batch_size=2)
+scores = ddpg(ddpg_agent, episodes=10000, step=AGENT_MAX_STEPS, pretrained=False, display_batch_size=20)
 
 fig = plt.figure()
 plt.plot(np.arange(1, len(scores) + 1), scores)
