@@ -72,13 +72,16 @@ class Iirabm_Environment(gym.Env):
             high=1,
             shape=(NUM_CYTOKINES_CONTROLLED,),
             dtype=np.float32)
-
-        obs_space_high = np.array(all_signals_max)
+        obs_max = np.hstack([1,all_signals_max[1:]])
+        obs_space_high = np.array(obs_max)
         # for i in range(NUM_OBSERVTAIONS-1):
         #     obs_space_high = np.hstack((obs_space_high, np.array([10,10,10,10,10,10,10,10,10,10,10])))
         for i in range(NUM_OBSERVTAIONS-1):
-            obs_space_high = np.hstack((obs_space_high,all_signals_max))
+            obs_space_high = np.vstack((obs_space_high,obs_max))
+        print(obs_space_high)
+        obs_space_high = obs_space_high.T.flatten()
         print(obs_space_high.shape)
+        print(obs_space_high)
         self.observation_space = gym.spaces.Box(
             low=0,
             high=obs_space_high,
@@ -103,6 +106,8 @@ class Iirabm_Environment(gym.Env):
     # Execute one time step within the environment, repeat for number of simulation steps and return average
         self.RL_step += 1
         dead = False
+        healed = False
+        timeout = False
         action = self.take_action(action)
         self.cytokine_history = SIM.getAllSignalsReturn(self.ptrToEnv)[[0,2,3,4,5,12,13,14,15,16,17,18],:]
         self.oxydef_history = SIM.getAllSignalsReturn(self.ptrToEnv)[0,:]
@@ -112,9 +117,7 @@ class Iirabm_Environment(gym.Env):
         obs = self.next_observation()
         self.render(action)
         for num_repeats in range(self.action_repeats - 1):
-            if done:
-                if self.oxydef_history[self.current_step] > MAX_OXYDEF:
-                    dead = True
+            if done > 0:
                 break
             action = self.take_action(action)
             self.cytokine_history = SIM.getAllSignalsReturn(self.ptrToEnv)[[0,2,3,4,5,12,13,14,15,16,17,18],:]
@@ -125,10 +128,20 @@ class Iirabm_Environment(gym.Env):
             reward += self.calculate_reward(action)
             obs = np.add(obs,self.next_observation())
             self.render(action)
-
+        if done == 1:
+            healed = True
+        if done == 2:
+            dead = True
+        if done == 3:
+            timeout = True
         # obs /= num_repeats+1
         # reward /= num_repeats+1
-        return obs, reward, done, {"Dead":dead}
+        info = {"dead":dead,
+        "healed":healed,
+        "timeout":timeout,
+        "step":self.current_step,
+        "oxydef":self.oxydef_history[self.current_step]}
+        return obs, reward, done, info
 
     def take_action(self,action_vector):
         action_vector = np.squeeze(action_vector)
@@ -164,11 +177,14 @@ class Iirabm_Environment(gym.Env):
 
     def next_observation(self):
         cytokines = self.cytokine_history[:,self.current_step-NUM_OBSERVTAIONS:self.current_step]
+        # print("cytokines")
+        # print(cytokines)
         observation = cytokines
-        for i in range(observation.shape[0]):
-            observation[i,:] = observation[i,:] / self.observation_space.high[i]
-        observation = np.squeeze(observation).flatten()
-
+        observation[0,:] = observation[0,:]/self.observation_space.high[0]
+        # for i in range(observation.shape[0]):
+        #     observation[i,:] = observation[i,:] / self.observation_space.high[i]
+        observation = observation.flatten()
+        # print(observation)
         return observation
 
     def calculate_done(self):
@@ -176,10 +192,10 @@ class Iirabm_Environment(gym.Env):
         if self.oxydef_history[self.current_step] < 10:
             DONE = 1
         if self.oxydef_history[self.current_step] > MAX_OXYDEF:
-            DONE = 1
+            DONE = 2
         if self.current_step == MAX_STEPS:
-            DONE = 1
-        return bool(DONE)
+            DONE = 3
+        return DONE
 
     def calculate_reward(self, action):
         return_reward = 0
@@ -187,10 +203,10 @@ class Iirabm_Environment(gym.Env):
         # return_reward += 1 #bonus for staying alive per step
         if self.oxydef_history[self.current_step] < 10:
             if self.calculate_done():
-                return 250 * reward_mult
+                return 1000 * reward_mult
         if self.oxydef_history[self.current_step] > 8100:
             if self.calculate_done():
-                return -250 * reward_mult
+                return -1000 * reward_mult
 
 
         phi = self.phi_mult * -self.oxydef_history[self.current_step]/(101*101)

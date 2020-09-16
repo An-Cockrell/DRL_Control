@@ -34,6 +34,10 @@ def ddpg(agent, episodes, step, pretrained, display_batch_size):
     Q_score = 0
     simulation_time = 0
     step_total = 0
+    death_count = 0
+    heal_count = 0
+    timeout_count = 0
+    oxydef_total = 0
     print("\n\n\nTHIS VERSION LEARNS WHILE PLAYING\n\n\n")
 
     if pretrained:
@@ -43,7 +47,7 @@ def ddpg(agent, episodes, step, pretrained, display_batch_size):
         agent.critic_target = tf.keras.models.load_model('successful_critic_target.h5')
         TESTING = True
 
-    for current_episode in range(1, episodes):
+    for current_episode in range(episodes):
         print(current_episode, end="\r")
         # env.seed(current_episode)
         state = env.reset(seed = current_episode)
@@ -81,7 +85,13 @@ def ddpg(agent, episodes, step, pretrained, display_batch_size):
             if done:
                 running_score += score
                 reward_list.append(score)
-
+                oxydef_total += info["oxydef"]
+                if info["dead"]:
+                    death_count += 1
+                if info["healed"]:
+                    heal_count += 1
+                if info["timeout"] or current_step == step:
+                    timeout_count += 1
                 if current_episode % display_batch_size==0 or TESTING:
                     display_divisor = display_batch_size
                     temp_score = 0
@@ -98,7 +108,7 @@ def ddpg(agent, episodes, step, pretrained, display_batch_size):
                     print("Avg Times last {} - Selecting: {:3.2f}, Training: {:3.2f}, Updating: {:3.2f}, Simulating: {:3.2f}".format(display_divisor, agent.selecting_time/display_divisor, agent.training_time/display_divisor, agent.updating_time/display_divisor, simulation_time/display_divisor))
                     # print("LOWS:  {:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f}".format(*output_range[0,:]))
                     # print("HIGHS: {:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f}".format(*output_range[1,:]))
-
+                    print("Avg Rates last {} - Mortality Rate: {:2.1f}%, Healing Rate {:2.1f}%, Timeout Rate {:2.1f}%. Final Oxydef: {:4.1f}".format(display_divisor, (death_count/display_divisor)*100, 100*(heal_count/display_divisor), 100*(timeout_count/display_divisor), oxydef_total/display_divisor))
                     # print("Real reward: {:4.0f}, Q_score: {:4.0f}, Difference: {:4.0f}".format(score, Q_score, score-Q_score))
                     print()
                     running_score = temp_score
@@ -106,11 +116,15 @@ def ddpg(agent, episodes, step, pretrained, display_batch_size):
                     agent.reset_timers()
                     start = time.time()
                     simulation_time = 0
+                    death_count = 0
+                    heal_count = 0
+                    timeout_count = 0
+                    oxydef_total = 0
                     step_total = temp_step
                 if random_explore and current_episode > -1:
                     random_explore = False
                     print("USING AGENT ACTIONS NOW")
-                if current_episode % (NUM_TEST_EPS+1) == 0 and TESTING:
+                if current_episode % 100 - NUM_TEST_EPS == 0 and TESTING:
                     TESTING = False
                     if np.mean(reward_list[-50:]) >= 200:
                         print('Task Solved')
@@ -120,7 +134,7 @@ def ddpg(agent, episodes, step, pretrained, display_batch_size):
                         agent.critic_target.save('successful_critic_target.h5')
                         print('Training saved')
                         problem_solved = True
-                if current_episode%100 == 0:
+                if current_episode%100 == 0 and current_episode > 1:
                     TESTING = True
                 if current_episode % EPS_BETWEEN_EXP_UPDATE == 0 and current_episode > 0:
                     agent.update_exploration()
@@ -155,7 +169,7 @@ NUM_TEST_EPS = 2
 ENV_STEPS = 4000
 AGENT_ACTION_REPEATS = 4
 AGENT_MAX_STEPS = math.floor(ENV_STEPS/AGENT_ACTION_REPEATS)
-env = Iirabm_Environment(rendering="human", action_repeats=AGENT_ACTION_REPEATS, ENV_MAX_STEPS=ENV_STEPS, action_L1=0.1, potential_difference_mult=10, phi_mult = 100)
+env = Iirabm_Environment(rendering=None, action_repeats=AGENT_ACTION_REPEATS, ENV_MAX_STEPS=ENV_STEPS, action_L1=None, potential_difference_mult=25, phi_mult = 100)
 # env = gym.make("LunarLanderContinuous-v2")  # Create the environment
 print(env.observation_space.shape)
 print(env.action_space.shape)
@@ -165,7 +179,7 @@ action_dim = env.action_space.shape[0]
 
 ddpg_agent = Agent(state_size=state_dim, action_size=action_dim, LR_ACTOR=LR_ACTOR, LR_CRITIC=LR_CRITIC, noise_magnitude=STARTING_NOISE_MAG, BUFFER_SIZE=BUFFER_SIZE, BATCH_SIZE=BATCH_SIZE, GAMMA=GAMMA, TAU=TAU)
 
-scores = ddpg(ddpg_agent, episodes=10000, step=AGENT_MAX_STEPS, pretrained=False, display_batch_size=1)
+scores = ddpg(ddpg_agent, episodes=10000, step=AGENT_MAX_STEPS, pretrained=False, display_batch_size=2)
 
 fig = plt.figure()
 plt.plot(np.arange(1, len(scores) + 1), scores)
