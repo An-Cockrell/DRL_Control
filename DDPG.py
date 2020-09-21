@@ -1,5 +1,6 @@
 # https://github.com/shivaverma/OpenAIGym/tree/master/bipedal-walker/ddpg-torch
-
+import os
+os.environ["CUDA_VISIBLE_DEVICES"]="-1"
 import gym
 
 import numpy as np
@@ -11,7 +12,6 @@ import gc
 import math
 
 import tensorflow as tf
-import tensorflow_addons as tfa
 from tensorflow.keras import layers
 from tensorflow.python.framework import ops
 from tensorflow.keras import backend as K
@@ -50,7 +50,7 @@ def ddpg(agent, episodes, step, pretrained, display_batch_size):
     for current_episode in range(episodes):
         # print(current_episode, end="\r")
         # env.seed(current_episode)
-        state = env.reset(seed = 8)
+        state = env.reset(seed = current_episode)
         current_step = 1
         output_range = None
         score = 0
@@ -94,19 +94,20 @@ def ddpg(agent, episodes, step, pretrained, display_batch_size):
                 if info["timeout"] or current_step == step:
                     timeout_count += 1
                 # print(death_count, heal_count, timeout_count)
-                if current_episode % display_batch_size==0 or TESTING:
+                if current_episode % display_batch_size==0 or (TESTING and current_episode%(EPS_BETWEEN_TEST - NUM_TEST_EPS) == 0):
                     display_divisor = display_batch_size
                     temp_score = 0
                     temp_step = 0
                     if TESTING:
                         print("TESTING -- TESTING -- TESTING -- TESTING")
-                        temp_score = running_score
-                        temp_step = step_total
-                        step_total = current_step
-                        display_divisor = 1
+                        # temp_score = running_score
+                        # temp_step = step_total
+                        # step_total = current_step
+                        # display_divisor = NUM_TEST_EPS
+                        # display_divisor = 1
                     else:
                         score = running_score
-                    print('Episode: {:4.0f} | Steps: {:4.0f} | Avg Reward last {} episodes: {:5.2f} | Avg Time last {} episodes: {:.2f} Seconds'.format(current_episode, step_total/display_divisor, display_divisor, score/display_divisor, display_batch_size, (time.time() - start)/display_divisor))
+                    print('Episode: {:4.0f} | Steps: {:4.0f} | Avg Reward last {} episodes: {:5.2f} | Avg Time last {} episodes: {:.2f} Seconds'.format(current_episode, step_total/display_divisor, display_divisor, score/display_divisor, display_divisor, (time.time() - start)/display_divisor))
                     print("Avg Times last {} - Selecting: {:3.2f}, Training: {:3.2f}, Updating: {:3.2f}, Simulating: {:3.2f}".format(display_divisor, agent.selecting_time/display_divisor, agent.training_time/display_divisor, agent.updating_time/display_divisor, simulation_time/display_divisor))
                     # print("LOWS:  {:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f}".format(*output_range[0,:]))
                     # print("HIGHS: {:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f}".format(*output_range[1,:]))
@@ -126,17 +127,17 @@ def ddpg(agent, episodes, step, pretrained, display_batch_size):
                 if random_explore and current_episode > -1:
                     random_explore = False
                     print("USING AGENT ACTIONS NOW")
-                if current_episode % 100 - NUM_TEST_EPS == 0 and TESTING:
+                if current_episode % EPS_BETWEEN_TEST - NUM_TEST_EPS == 0 and TESTING:
                     TESTING = False
-                    if np.mean(reward_list[-50:]) >= 200:
-                        print('Task Solved')
-                        agent.actor_local.save('successful_actor_local.h5')
-                        agent.critic_local.save('successful_critic_local.h5')
-                        agent.actor_target.save('successful_actor_target.h5')
-                        agent.critic_target.save('successful_critic_target.h5')
-                        print('Training saved')
-                        problem_solved = True
-                if current_episode%100 == 0 and current_episode > 1:
+                if np.mean(reward_list[-100:]) >= WIN_THRESHOLD:
+                    print('Task Solved')
+                    agent.actor_local.save('successful_actor_local.h5')
+                    agent.critic_local.save('successful_critic_local.h5')
+                    agent.actor_target.save('successful_actor_target.h5')
+                    agent.critic_target.save('successful_critic_target.h5')
+                    print('Training saved')
+                    problem_solved = True
+                if current_episode%EPS_BETWEEN_TEST == 0 and current_episode > 1:
                     TESTING = True
                 if current_episode % EPS_BETWEEN_EXP_UPDATE == 0 and current_episode > 0:
                     agent.update_exploration()
@@ -165,10 +166,13 @@ LR_CRITIC = 0.001          # learning rate of the critic
 WEIGHT_DECAY = 0.001       # L2 weight decay
 BATCH_SIZE = 64        # minibatch size
 STARTING_NOISE_MAG = .1    #initial exploration noise magnitude
-EPS_BETWEEN_EXP_UPDATE = 1000 #episodes inbetween exploration update
+EPS_BETWEEN_EXP_UPDATE = 500 #episodes inbetween exploration update
 
-NUM_TEST_EPS = 2
-ENV_STEPS = 4000
+WIN_THRESHOLD = 200
+
+EPS_BETWEEN_TEST = 100
+NUM_TEST_EPS = 20
+ENV_STEPS = 8000
 AGENT_ACTION_REPEATS = 4
 AGENT_MAX_STEPS = math.floor(ENV_STEPS/AGENT_ACTION_REPEATS)
 env = Iirabm_Environment(rendering=None, action_repeats=AGENT_ACTION_REPEATS, ENV_MAX_STEPS=ENV_STEPS, action_L1=0.1, potential_difference_mult=100, phi_mult = 100)
@@ -181,7 +185,7 @@ action_dim = env.action_space.shape[0]
 
 ddpg_agent = Agent(state_size=state_dim, action_size=action_dim, LR_ACTOR=LR_ACTOR, LR_CRITIC=LR_CRITIC, noise_magnitude=STARTING_NOISE_MAG, BUFFER_SIZE=BUFFER_SIZE, BATCH_SIZE=BATCH_SIZE, GAMMA=GAMMA, TAU=TAU)
 
-scores = ddpg(ddpg_agent, episodes=10000, step=AGENT_MAX_STEPS, pretrained=False, display_batch_size=20)
+scores = ddpg(ddpg_agent, episodes=10000, step=AGENT_MAX_STEPS, pretrained=False, display_batch_size=NUM_TEST_EPS)
 
 fig = plt.figure()
 plt.plot(np.arange(1, len(scores) + 1), scores)
