@@ -20,7 +20,10 @@ import matplotlib.pyplot as plt
 from iirabm_env import Iirabm_Environment
 from ddpg_agent import Agent
 
-def ddpg(agent, episodes, step, pretrained, display_batch_size):
+def ddpg(agent, episodes, step, pretrained, display_batch_size, save_cyto_data=True):
+    if save_cyto_data:
+        cyto_data = np.zeros((12, 10000, episodes))
+        action_data = np.zeros((11,10000,episodes))
     total_time = time.time()
     reward_list = []
     random_explore = False
@@ -48,7 +51,7 @@ def ddpg(agent, episodes, step, pretrained, display_batch_size):
         TESTING = True
 
     for current_episode in range(episodes):
-        # print(current_episode, end="\r")
+        print(current_episode, end="\r")
         # env.seed(current_episode)
         state = env.reset(seed = current_episode)
         current_step = 1
@@ -56,6 +59,8 @@ def ddpg(agent, episodes, step, pretrained, display_batch_size):
         score = 0
         for _ in range(step):
             simulation_start = time.time()
+            # print(env.current_step)
+            # print(env.cytokine_history[:,env.current_step-1])
             # env.render()
             state = tf.expand_dims(tf.convert_to_tensor(state), 0)
             if random_explore:
@@ -70,6 +75,8 @@ def ddpg(agent, episodes, step, pretrained, display_batch_size):
             step_total += 1
             # print(reward)
             # if current_step > 100: # after the burn in period, then start learning. Also so we dont add step < 100 to memory
+            # print(env.cytokine_history[0,env.current_step-5:env.current_step+5])
+            # print(env.cytokine_history)
             agent.step(state, action, reward, next_state, done)
             score += reward
             Q_reward = agent.critic_local([state, action])[0][0]
@@ -83,6 +90,12 @@ def ddpg(agent, episodes, step, pretrained, display_batch_size):
             if current_step == step:
                 done = True
             if done:
+                if save_cyto_data:
+                    cyto_output = env.cytokine_history[:, env.cytokine_history[0,:] >0]
+                    cyto_data[:,:cyto_output.shape[1],current_episode] = cyto_output
+                    action_data[:,:cyto_output.shape[1],current_episode] = env.action_history[:,:cyto_output.shape[1]]
+                    cyto_data[:,cyto_output.shape[1]:,current_episode] = float('nan')
+                    action_data[:,cyto_output.shape[1]:,current_episode] = float('nan')
 
                 running_score += score
                 reward_list.append(score)
@@ -124,12 +137,13 @@ def ddpg(agent, episodes, step, pretrained, display_batch_size):
                     timeout_count = 0
                     oxydef_total = 0
                     step_total = temp_step
+
                 if random_explore and current_episode > -1:
                     random_explore = False
                     print("USING AGENT ACTIONS NOW")
                 if current_episode % EPS_BETWEEN_TEST - NUM_TEST_EPS == 0 and TESTING:
                     TESTING = False
-                if np.mean(reward_list[-100:]) >= WIN_THRESHOLD:
+                if np.mean(reward_list[-100:]) >= WIN_THRESHOLD and current_episode > 100:
                     print('Task Solved')
                     agent.actor_local.save('successful_actor_local.h5')
                     agent.critic_local.save('successful_critic_local.h5')
@@ -154,6 +168,8 @@ def ddpg(agent, episodes, step, pretrained, display_batch_size):
 
     print("Done Training")
     print("Total Time Taken: {:4.2f} minutes".format((time.time()-total_time)/60))
+    np.save("cytokine_data.npy", cyto_data)
+    np.save("action_data.npy", action_data)
     return reward_list
 
 # TRAINING TIME

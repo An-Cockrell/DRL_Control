@@ -116,8 +116,9 @@ class Iirabm_Environment(gym.Env):
         healed = False
         timeout = False
         action = self.take_action(action)
-        self.cytokine_history = SIM.getAllSignalsReturn(self.ptrToEnv)[[0,2,3,4,5,12,13,14,15,16,17,18],:]
-        self.oxydef_history = SIM.getAllSignalsReturn(self.ptrToEnv)[0,:]
+        self.cytokine_history[:,self.current_step] = SIM.getAllSignalsReturn(self.ptrToEnv)[[0,2,3,4,5,12,13,14,15,16,17,18],self.current_step]
+
+        self.oxydef_history[self.current_step] = SIM.getAllSignalsReturn(self.ptrToEnv)[0,self.current_step]
         self.current_step = SIM.getSimulationStep(self.ptrToEnv)
         done = self.calculate_done()
         reward = self.calculate_reward(action)
@@ -127,8 +128,8 @@ class Iirabm_Environment(gym.Env):
             if done > 0:
                 break
             action = self.take_action(action)
-            self.cytokine_history = SIM.getAllSignalsReturn(self.ptrToEnv)[[0,2,3,4,5,12,13,14,15,16,17,18],:]
-            self.oxydef_history = SIM.getAllSignalsReturn(self.ptrToEnv)[0,:]
+            self.cytokine_history[:,self.current_step] = SIM.getAllSignalsReturn(self.ptrToEnv)[[0,2,3,4,5,12,13,14,15,16,17,18],self.current_step]
+            self.oxydef_history[self.current_step] = SIM.getAllSignalsReturn(self.ptrToEnv)[0,self.current_step]
             self.current_step = SIM.getSimulationStep(self.ptrToEnv)
 
             done = self.calculate_done()
@@ -163,9 +164,8 @@ class Iirabm_Environment(gym.Env):
         # action = tf.keras.backend.switch(action_vector >= 0, (action_vector*9)+1, action_vector + 1.0001)
         # action = tf.clip_by_value(action, .001, 10)
 
-        self.action_history[:,self.current_step] = action_vector
+        self.action_history[:,self.current_step] = action
         self.cytokine_mults = action
-
         SIM.setTNFmult(self.ptrToEnv, action[0])
         SIM.setsTNFrmult(self.ptrToEnv, action[1])
         SIM.setIL10mult(self.ptrToEnv, action[2])
@@ -183,7 +183,7 @@ class Iirabm_Environment(gym.Env):
         return action_vector
 
     def next_observation(self):
-        cytokines = self.cytokine_history[:,self.current_step-NUM_OBSERVTAIONS:self.current_step]
+        cytokines = np.array(self.cytokine_history[:,self.current_step-NUM_OBSERVTAIONS:self.current_step])
 
         # print("cytokines")
         # print(cytokines)
@@ -244,6 +244,8 @@ class Iirabm_Environment(gym.Env):
         self.cytokine_history = SIM.getAllSignalsReturn(self.ptrToEnv)[[0,2,3,4,5,12,13,14,15,16,17,18],:]
         self.oxydef_history = SIM.getAllSignalsReturn(self.ptrToEnv)[0,:]
         self.current_step = SIM.getSimulationStep(self.ptrToEnv)
+        self.cytokine_history[:,self.current_step:] = 0
+        self.oxydef_history[self.current_step:] = 0
         self.RL_step = 0
         self.phi_prev = None # Starts at None so each episode's first reward doesn't include a potential function.
 
