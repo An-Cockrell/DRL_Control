@@ -10,10 +10,10 @@
 #SBATCH --mem-per-cpu=200G
 #SBATCH --time=48:00:00
 # Name job
-#SBATCH --job-name=DDPGp05XL
+#SBATCH --job-name=DDPGL01
 
 # Name output file
-#SBATCH --output=ddpp05XL.out
+#SBATCH --output=ddpgl01.out
 # Set email address (for user with email "usr1234@uvm.edu")
 #SBATCH --mail-user=daleblarie@gmail.com
 # Request email to be sent at begin and end, and if fails
@@ -27,6 +27,13 @@ echo "Assigned nodes:  ${SLURM_JOB_NODELIST}"
 echo "Job ID:          ${SLURM_JOBID}"
 echo "GPU(s):          ${CUDA_VISIBLE_DEVICES}"
 
+echo "this version has:
+BATCH_SIZE = 64        # minibatch size
+STARTING_NOISE_MAG = .1    #initial exploration noise magnitude
+EPS_BETWEEN_EXP_UPDATE = 1000 #episodes inbetween exploration update
+
+l1 = 0.01
+"
 
 source ~/scratch/mypy/bin/activate
 PATH=/gpfs3/arch/x86_64-rhel7/cuda-10.0/bin:${PATH}

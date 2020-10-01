@@ -1,7 +1,8 @@
 	const int xDim=101;
 	const int yDim=101;
 
-	const float antibioticMultiplier=-1;
+	// const float antibioticMultiplier=-1; // change to 0.2 to activate antibiotics
+	const float antibioticMultiplier=0.2;
 	const int parameterInput=0; //number of parameter sets
 
 	const int numTimeSteps=10000; //5760=28 days

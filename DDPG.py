@@ -1,6 +1,5 @@
 # https://github.com/shivaverma/OpenAIGym/tree/master/bipedal-walker/ddpg-torch
 import os
-os.environ["CUDA_VISIBLE_DEVICES"]="-1"
 import gym
 
 import numpy as np
@@ -19,10 +18,10 @@ import matplotlib.pyplot as plt
 
 from iirabm_env import Iirabm_Environment
 from ddpg_agent import Agent
-
-def ddpg(agent, episodes, step, pretrained, display_batch_size, save_cyto_data=True):
+tf.config.set_visible_devices([], 'GPU')
+def ddpg(agent, episodes, step, pretrained, display_batch_size, save_cyto_data=True, NO_ACTION=False):
     if save_cyto_data:
-        cyto_data = np.zeros((12, 10000, episodes))
+        cyto_data = np.zeros((20, 10000, episodes))
         action_data = np.zeros((11,10000,episodes))
     total_time = time.time()
     reward_list = []
@@ -39,6 +38,7 @@ def ddpg(agent, episodes, step, pretrained, display_batch_size, save_cyto_data=T
     step_total = 0
     death_count = 0
     heal_count = 0
+    transient_infection_count = 0
     timeout_count = 0
     oxydef_total = 0
     print("\n\n\nTHIS VERSION LEARNS WHILE PLAYING\n\n\n")
@@ -51,6 +51,8 @@ def ddpg(agent, episodes, step, pretrained, display_batch_size, save_cyto_data=T
         TESTING = True
 
     for current_episode in range(episodes):
+        if pretrained:
+            TESTING = True
         print(current_episode, end="\r")
         # env.seed(current_episode)
         state = env.reset(seed = current_episode)
@@ -68,7 +70,8 @@ def ddpg(agent, episodes, step, pretrained, display_batch_size, save_cyto_data=T
                 action = tf.expand_dims(action, axis=0)
             else:
                 action = agent.act(state, training = not TESTING)
-            # action = tf.expand_dims(np.array([0,0,0,0,0,0,0,0,0,0,0]),0)
+            if NO_ACTION:
+                action = tf.expand_dims(np.array([0,0,0,0,0,0,0,0,0,0,0]),0)
 
             next_state, reward, done, info = env.step(action[0])
             current_step += 1
@@ -91,7 +94,7 @@ def ddpg(agent, episodes, step, pretrained, display_batch_size, save_cyto_data=T
                 done = True
             if done:
                 if save_cyto_data:
-                    cyto_output = env.cytokine_history[:, env.cytokine_history[0,:] >0]
+                    cyto_output = env.full_history[:, env.cytokine_history[0,:] >0]
                     cyto_data[:,:cyto_output.shape[1],current_episode] = cyto_output
                     action_data[:,:cyto_output.shape[1],current_episode] = env.action_history[:,:cyto_output.shape[1]]
                     cyto_data[:,cyto_output.shape[1]:,current_episode] = float('nan')
@@ -104,15 +107,18 @@ def ddpg(agent, episodes, step, pretrained, display_batch_size, save_cyto_data=T
                     death_count += 1
                 if info["healed"]:
                     heal_count += 1
+                if info["transient_infection"]:
+                    transient_infection_count += 1
                 if info["timeout"] or current_step == step:
                     timeout_count += 1
                 # print(death_count, heal_count, timeout_count)
-                if current_episode % display_batch_size==0 or (TESTING and current_episode%(EPS_BETWEEN_TEST - NUM_TEST_EPS) == 0):
+                if current_episode % display_batch_size==0:
                     display_divisor = display_batch_size
                     temp_score = 0
                     temp_step = 0
                     if TESTING:
                         print("TESTING -- TESTING -- TESTING -- TESTING")
+                        score = running_score
                         # temp_score = running_score
                         # temp_step = step_total
                         # step_total = current_step
@@ -121,10 +127,12 @@ def ddpg(agent, episodes, step, pretrained, display_batch_size, save_cyto_data=T
                     else:
                         score = running_score
                     print('Episode: {:4.0f} | Steps: {:4.0f} | Avg Reward last {} episodes: {:5.2f} | Avg Time last {} episodes: {:.2f} Seconds'.format(current_episode, step_total/display_divisor, display_divisor, score/display_divisor, display_divisor, (time.time() - start)/display_divisor))
-                    print("Avg Times last {} - Selecting: {:3.2f}, Training: {:3.2f}, Updating: {:3.2f}, Simulating: {:3.2f}".format(display_divisor, agent.selecting_time/display_divisor, agent.training_time/display_divisor, agent.updating_time/display_divisor, simulation_time/display_divisor))
+                    # print("Avg Times last {} - Selecting: {:3.2f}, Training: {:3.2f}, Updating: {:3.2f}, Simulating: {:3.2f}".format(display_divisor, agent.selecting_time/display_divisor, agent.training_time/display_divisor, agent.updating_time/display_divisor, simulation_time/display_divisor))
                     # print("LOWS:  {:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f}".format(*output_range[0,:]))
                     # print("HIGHS: {:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f}".format(*output_range[1,:]))
                     print("Avg Rates last {} - Mortality Rate: {:2.1f}%, Healing Rate {:2.1f}%, Timeout Rate {:2.1f}%. Final Oxydef: {:4.1f}".format(display_divisor, (death_count/display_divisor)*100, 100*(heal_count/display_divisor), 100*(timeout_count/display_divisor), oxydef_total/display_divisor))
+                    if transient_infection_count > 0:
+                        print("Num Reinfections: {:2.0f}".format(transient_infection_count))
                     # print("Real reward: {:4.0f}, Q_score: {:4.0f}, Difference: {:4.0f}".format(score, Q_score, score-Q_score))
                     print()
                     running_score = temp_score
@@ -134,6 +142,7 @@ def ddpg(agent, episodes, step, pretrained, display_batch_size, save_cyto_data=T
                     simulation_time = 0
                     death_count = 0
                     heal_count = 0
+                    transient_infection_count = 0
                     timeout_count = 0
                     oxydef_total = 0
                     step_total = temp_step
@@ -143,13 +152,14 @@ def ddpg(agent, episodes, step, pretrained, display_batch_size, save_cyto_data=T
                     print("USING AGENT ACTIONS NOW")
                 if current_episode % EPS_BETWEEN_TEST - NUM_TEST_EPS == 0 and TESTING:
                     TESTING = False
-                if np.mean(reward_list[-100:]) >= WIN_THRESHOLD and current_episode > 100:
+                if np.mean(reward_list[-200:]) >= WIN_THRESHOLD and current_episode > 500:
                     print('Task Solved')
-                    agent.actor_local.save('successful_actor_local.h5')
-                    agent.critic_local.save('successful_critic_local.h5')
-                    agent.actor_target.save('successful_actor_target.h5')
-                    agent.critic_target.save('successful_critic_target.h5')
-                    print('Training saved')
+                    if not pretrained:
+                        agent.actor_local.save('successful_actor_local.h5')
+                        agent.critic_local.save('successful_critic_local.h5')
+                        agent.actor_target.save('successful_actor_target.h5')
+                        agent.critic_target.save('successful_critic_target.h5')
+                        print('Training saved')
                     problem_solved = True
                 if current_episode%EPS_BETWEEN_TEST == 0 and current_episode > 1:
                     TESTING = True
@@ -168,8 +178,8 @@ def ddpg(agent, episodes, step, pretrained, display_batch_size, save_cyto_data=T
 
     print("Done Training")
     print("Total Time Taken: {:4.2f} minutes".format((time.time()-total_time)/60))
-    np.save("cytokine_data.npy", cyto_data)
-    np.save("action_data.npy", action_data)
+    np.save("cytokine_data.npy", cyto_data[:,:,:current_episode])
+    np.save("action_data.npy", action_data[:,:,:current_episode])
     return reward_list
 
 # TRAINING TIME
@@ -181,17 +191,17 @@ LR_ACTOR = 0.0001          # learning rate of the actor
 LR_CRITIC = 0.001          # learning rate of the critic
 WEIGHT_DECAY = 0.001       # L2 weight decay
 BATCH_SIZE = 64        # minibatch size
-STARTING_NOISE_MAG = .1    #initial exploration noise magnitude
+STARTING_NOISE_MAG = .2  #initial exploration noise magnitude
 EPS_BETWEEN_EXP_UPDATE = 500 #episodes inbetween exploration update
 
-WIN_THRESHOLD = 200
+WIN_THRESHOLD = 1500
 
 EPS_BETWEEN_TEST = 100
 NUM_TEST_EPS = 20
 ENV_STEPS = 8000
 AGENT_ACTION_REPEATS = 4
 AGENT_MAX_STEPS = math.floor(ENV_STEPS/AGENT_ACTION_REPEATS)
-env = Iirabm_Environment(rendering=None, action_repeats=AGENT_ACTION_REPEATS, ENV_MAX_STEPS=ENV_STEPS, action_L1=0.1, potential_difference_mult=100, phi_mult = 100)
+env = Iirabm_Environment(rendering=None, action_repeats=AGENT_ACTION_REPEATS, ENV_MAX_STEPS=ENV_STEPS, action_L1=0.1, potential_difference_mult=200, phi_mult = 100)
 # env = gym.make("LunarLanderContinuous-v2")  # Create the environment
 print(env.observation_space.shape)
 print(env.action_space.shape)
@@ -201,10 +211,4 @@ action_dim = env.action_space.shape[0]
 
 ddpg_agent = Agent(state_size=state_dim, action_size=action_dim, LR_ACTOR=LR_ACTOR, LR_CRITIC=LR_CRITIC, noise_magnitude=STARTING_NOISE_MAG, BUFFER_SIZE=BUFFER_SIZE, BATCH_SIZE=BATCH_SIZE, GAMMA=GAMMA, TAU=TAU)
 
-scores = ddpg(ddpg_agent, episodes=10000, step=AGENT_MAX_STEPS, pretrained=False, display_batch_size=NUM_TEST_EPS)
-
-fig = plt.figure()
-plt.plot(np.arange(1, len(scores) + 1), scores)
-plt.ylabel('Score')
-plt.xlabel('Episode #')
-plt.show()
+scores = ddpg(ddpg_agent, episodes=10000, step=AGENT_MAX_STEPS, pretrained=False, display_batch_size=NUM_TEST_EPS, NO_ACTION=False)

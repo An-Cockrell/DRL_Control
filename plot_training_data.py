@@ -1,7 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
-SAVE_FIGS = True
+SAVE_FIGS = False
 cyto_names = ["TNF", "TNFr", "IL10", "GCSF", "IFNg", "PAF", "IL1", "IL4", "IL8", "IL12", "sIL1r"]
 
 heal_color = "green"
@@ -33,7 +33,7 @@ for i in range(len(heal_index)):
         heal_index[i] = 1
     if np.any(cytokine_data[0,100:,i] > 8100):
         heal_index[i] = 2
-
+        print(i)
 summed_cytokine_data = np.sum(cytokine_data[1:,:,:], axis=0)
 summed_action_data = np.sum(action_data, axis=0)
 
@@ -180,15 +180,19 @@ def plot_compare_cytokine():
         fig = plt.figure(figsize=(10,6))
         ax1 = fig.add_subplot(2, 1, 1)
         ax2 = fig.add_subplot(2, 1, 2, sharey=ax1)
-        ax1.plot(healed_cyto[index+1,:,0], c="g", label="Heal")
-        ax1.plot(healed_cyto[index+1,:,:], c="g")
+        try:
+            ax1.plot(healed_cyto[index+1,:,0], c="g", label="Heal")
+            ax1.plot(healed_cyto[index+1,:,:], c="g")
+        except:
+            pass
         ax1.set_xlabel("Step (6 min)")
         ax1.set_ylabel("Cyotkine Count")
         ax1.legend(loc=4)
-
-        ax2.plot(timeout_cyto[index+1,:,0], c="m", label="Timeout")
-        ax2.plot(timeout_cyto[index+1,:,:], c="m")
-
+        try:
+            ax2.plot(timeout_cyto[index+1,:,0], c="m", label="Timeout")
+            ax2.plot(timeout_cyto[index+1,:,:], c="m")
+        except:
+            pass
         ax2.set_xlabel("Step (6 min)")
         ax2.set_ylabel("Cyotkine Count")
         ax2.legend(loc=4)

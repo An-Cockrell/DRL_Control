@@ -9,7 +9,7 @@ timeout_color = "magenta"
 death_color = "red"
 infection_color = "black"
 
-CUTOFF_TIME = 2000
+CUTOFF_TIME = 3000
 
 action_data = np.load("./action_data.npy")
 action_data = action_data[:,:,:]
@@ -23,7 +23,7 @@ for i in range(len(heal_index)):
         heal_index[i] = 1
     if np.any(cytokine_data[0,100:,i] > 8100):
         heal_index[i] = 2
-
+        print(i)
 high_low_index = np.zeros(action_data.shape[2])
 
 index = 0
@@ -74,7 +74,7 @@ for i in range(heal_index.shape[0]):
         heal_PC2[PCA_heal_index,1] = high_low_index[i]
         PCA_heal_index += 1
 
-    if heal_index[1] == 2:
+    if heal_index[i] == 2:
         death_PC1[PCA_death_index] = X[i,0]
         death_PC2[PCA_death_index] = X[i,1]
         death_PC1[PCA_death_index] = high_low_index[i]
@@ -87,7 +87,9 @@ heal_PC1 = heal_PC1[:PCA_heal_index]
 heal_PC2 = heal_PC2[:PCA_heal_index]
 death_PC1 = death_PC1[:PCA_death_index]
 death_PC2 = death_PC2[:PCA_death_index]
-
+print(death_PC1.shape)
+print(timeout_PC1.shape)
+print(heal_PC1.shape)
 timeout_high_PC1 = timeout_PC1[timeout_PC1[:,1] == 1]
 timeout_low_PC1 = timeout_PC1[timeout_PC1[:,1] == -1]
 timeout_med_PC1 = timeout_PC1[timeout_PC1[:,1] == 0]
