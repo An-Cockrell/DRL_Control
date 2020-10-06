@@ -363,10 +363,37 @@ def plot_action_cell_count(plot_live=True, plot_timeout=True, plot_dead=True):
                     pass
             if SAVE_FIGS:
                 plt.savefig("./Plots/"+name+"_action_cell_count")
-plot_cytokine_action()
-plot_cytokine_action_time()
-plot_compare_cytokine()
-plot_actions_infection_cytos(plot_timeout=True)
-plot_infection_cyokine()
-plot_action_cell_count(plot_live=True)
+
+
+def plot_oxydef():
+    plt.figure(figsize=(10,6))
+    try:
+        plt.plot(healed_cyto[0,:,0],c=heal_color, label="Healed")
+        plt.plot(healed_cyto[0,:,:], c=heal_color)
+    except:
+        pass
+    try:
+        plt.plot(dead_cyto[0,:,0], c=death_color, label="Dead")
+        plt.plot(dead_cyto[0,:,:], c=death_color)
+    except:
+        pass
+    try:
+        plt.plot(timeout_cyto[0,:,0], c=timeout_color, label="Timeout")
+        plt.plot(timeout_cyto[0,:,:], c=timeout_color)
+    except:
+        pass
+    plt.legend()
+    plt.title("Oxygen Deficit")
+    plt.xlabel("Step (6min)")
+    plt.ylabel("Oxydef")
+    if SAVE_FIGS:
+        plt.savefig("./Plots/Oxy_Def")
+# plot_cytokine_action()
+# plot_cytokine_action_time()
+# plot_compare_cytokine()
+# plot_actions_infection_cytos(plot_timeout=True)
+# plot_infection_cyokine()
+# plot_action_cell_count(plot_live=True)
+# plot_cytokines()
+plot_oxydef()
 plt.show()

@@ -1,11 +1,11 @@
 #!/bin/bash
-#SBATCH --partition=ib --constraint=haswell_1
-#SBATCH --ntasks=160
-#SBATCH --time=24:00:00
+#SBATCH --partition=week
+#SBATCH --ntasks=400
+#SBATCH --mem-per-cpu=200M
+#SBATCH --time=120:00:00
 #SBATCH --job-name=ParamSweep --output=%x.out
-echo "we got to the job name"
-module purge
-module load mpi/openmpi-3.1.6-slurm-ib-verbs
+# SBATCH --mail-user=$daleblarie@gmail.com
+# SBATCH --mail-type=ALL
 
 cd ${SLURM_SUBMIT_DIR}
 # Executable section: echoing some Slurm data
@@ -16,5 +16,4 @@ echo "Assigned nodes:  ${SLURM_JOB_NODELIST}"
 
 source ~/scratch/mypy/bin/activate
 
-
-mpiexec -n 160 python parameter_sweep.py
+mpiexec -n 400 python3 param_sweep_iirabm.py

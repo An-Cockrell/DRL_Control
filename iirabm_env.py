@@ -89,7 +89,7 @@ class Iirabm_Environment(gym.Env):
         for i in range(NUM_OBSERVTAIONS-1):
             obs_space_high = np.vstack((obs_space_high,obs_max))
         obs_space_high = obs_space_high.T.flatten()
-        print(obs_space_high.shape)
+        # print(obs_space_high.shape)
         self.observation_space = gym.spaces.Box(
             low=0,
             high=obs_space_high,
@@ -160,10 +160,10 @@ class Iirabm_Environment(gym.Env):
         for i in range(action_vector.shape[0]):
             act = action_vector[i]
             if act >= 0:
-                action[i] = (act*99)+1
+                action[i] = (act*9) + 1
             else:
                 action[i] = act + 1.001
-        action = np.clip(action, .001, 100)
+        action = np.clip(action, .001, 10)
         # action = tf.keras.backend.switch(action_vector >= 0, (action_vector*9)+1, action_vector + 1.0001)
         # action = tf.clip_by_value(action, .001, 10)
 
@@ -228,7 +228,7 @@ class Iirabm_Environment(gym.Env):
             self.take_action(neutral_action, testing_transient=True)
             self.current_step = SIM.getSimulationStep(self.ptrToEnv)
         print("WARNING PATIENT TIMEOUT WHILE TESTING TRANSIENT INFECTION")
-        return True
+        return False
 
 
     def calculate_reward(self, action):
@@ -288,7 +288,7 @@ class Iirabm_Environment(gym.Env):
         if action is None:
             action = self.action_history[:,self.current_step-1]
         np.set_printoptions(precision=3, suppress=True)
-        output = "step: {:4.0f}, Oxygen Deficit: {:6.0f}, Mults:{:7.3f},{:7.3f},{:7.3f},{:7.3f},{:7.3f},{:7.3f},{:7.3f},{:7.3f},{:7.3f},{:7.3f},{:7.3f}".format(self.current_step, SIM.getOxydef(self.ptrToEnv),*self.cytokine_mults)
+        output = "step: {:4.0f}, Oxygen Deficit: {:6.0f}, Mults:{:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f}".format(self.current_step, SIM.getOxydef(self.ptrToEnv),*self.cytokine_mults)
         if mode == 'human' or mode == 'console':
             print(output, end="\r")
     # Render the environment to the screen
