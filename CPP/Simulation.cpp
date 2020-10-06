@@ -26,8 +26,12 @@ void readParams(int procID, int nProc, int p1[], int* np1, float p2[], int* np2,
 
 
 extern "C" {
+    void* simulationObjectAddress;
+    SimulationObject sim_obj;
     void * CreateInstance(float OH, int IS, int NRI, int NIR, int InjNum, int inputSeed, int numCyto, float *IP){
-        return new SimulationObject(OH, IS, NRI, NIR, InjNum, inputSeed, numCyto, IP);
+        sim_obj = SimulationObject(OH, IS, NRI, NIR, InjNum, inputSeed, numCyto, IP);
+        simulationObjectAddress = &sim_obj;
+        return simulationObjectAddress;
     }
     void* CopyInstance(void* ptr){
         // SimulationObject *returnSim = new SimulationObject();
