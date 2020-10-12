@@ -16,28 +16,34 @@ import gym
 import matplotlib.pyplot as plt
 from scipy import stats
 
-# PLOTTING VARS
+# PLOTTING VARS PLACEHOLDERS
 globalLine = None
 globalAx = None
 globalFig = None
 globalBG = None
 
 
-HEAL_OXYDEF = 100
-MAX_OXYDEF = 8160
-MAX_STEPS = 9999
-NUM_CYTOKINES_CONTROLLED = 11
-NUM_OBSERVTAIONS = 1
-# OBS_VEC_SHAPE = NUM_CYTOKINES*((NUM_OBSERVTAIONS*2)-1)
-# all_signals_max = np.array([8164, 250, 118, 1675, 880, 108, 4027, 730, 1232, 2204, 87, 83])
+HEAL_OXYDEF = 400               #Oxydef level where therapy stops
+FINAL_HEAL_OXYDEF = 10          #Oxydef level where subject is considered totally healed
+MAX_OXYDEF = 8160               #Oxydef level where subject is considered dead
+MAX_STEPS = 9999                #Max number of steps the simulation will play
+NUM_CYTOKINES_CONTROLLED = 11   #Number of cytokines controlled by the agent
+NUM_OBSERVTAIONS = 1            #Total number of timesteps observed by the agent
+
+# Estimated maximum values for Oxydef, and 11 cytokines
 all_signals_max = np.array([4230, 60, 15, 150, 120, 15, 200, 60, 70, 100, 20, 10])
-# all_signals_max = np.array([3500, 60, 20, 200, 200, 10, 175, 65, 80, 100, 20, 10])
-# estimated_max = np.array(  [3000, 10, 50, 150, 50, 100, 100, 5, 150, 1000, 100, 200], dtype=np.float64)
-#         self.cytokine_history = SIM.getAllSignalsReturn(self.ptrToEnv)[[0,2,3,4,5,12,13,14,15,16,17,18],:]
 
 SIM = wrapper_setup.setUpWrapper()
 
-def createIIRABM(OH, IS, NRI, NIR, injNum, seed, numCytokines):
+def createIIRABM(OH, IS, NRI, NIR, injNum, seed, numCytokines=9):
+    # Function to create a simulation
+        # OH - oxyheal
+        # IS - infection spread
+        # NRI - Number of recurrent injuries
+        # NIR - Number of infection num_repeats
+        # injNum - Injury size / number of inital injuries
+        # seed - Random seed for the simulation
+        # numCytokines - Not certain what this variable does, but it was an input for the IIRABM so set it equal to 9
     oxyHeal = ctypes.c_float(OH)
     IS = ctypes.c_int(IS)
     NRI = ctypes.c_int(NRI)
@@ -55,16 +61,26 @@ class Iirabm_Environment(gym.Env):
     metadata = {'render.modes': ['human']}
 
     def __init__(self, rendering=None, action_repeats=4, ENV_MAX_STEPS=MAX_STEPS, action_L1=None, potential_difference_mult=None, phi_mult=1):
+        # Initialization function for the iirabm_env
+            # Rendering - modes are "human", "console", and None
+                # "human" - uses matplotlib to plot the oxydef of the simulation live. Also prints to the console in the same way as "console"
+                # "console" - prints the current step, the current oxydef, and the multipliers being applied to the 11 control cytokines
+                # None - does not print live updates
+            # action_repeats - number of environment steps the agent action is repeated for each agent step
+            # ENV_MAX_STEPS - the max number of environment steps (frames) before timeout
+            # action_L1 - multiplier to discourage large actions
+            # potential_difference_mult - multiplier for reward for difference in phi values
+            # phi_mult - multiplier for oxydef/(101*101)
         super(Iirabm_Environment, self).__init__()
 
-        self.reward_range = (-250,250)
-        self.cytokine_history = np.zeros((12,10000))
-        self.cytokine_mults = np.zeros((11,1))
-        self.oxydef_history = np.zeros((1,10000))
-        self.action_history = np.zeros((11,10000))
-        self.full_history = np.zeros((20,10000))
-        self.current_step = 0
-        self.RL_step = 0
+        self.reward_range = (-250,250)                              # Range of rewads at each step
+        self.cytokine_history = np.zeros((12,10000))                # Placeholder for history of oxydef and 11 cytokines for this simulation run
+        self.cytokine_mults = np.zeros((11,1))                      # Placeholder for current multipliers for cytokines (current action)
+        self.oxydef_history = np.zeros((1,10000))                   # Placeholder for oxygen deficit history for this simulation run
+        self.action_history = np.zeros((11,10000))                  # Placeholder for history of actions for this simulation run
+        self.full_history = np.zeros((20,10000))                    # Placeholder for full outout of iirabm for this simulation run
+        self.current_step = 0                                       # The current step of the simulation environment
+        self.RL_step = 0                                            # The current step of the agent
         self.action_L1 = action_L1
         self.phi_mult = phi_mult
         self.potential_difference_mult = potential_difference_mult
@@ -76,100 +92,120 @@ class Iirabm_Environment(gym.Env):
             high=1,
             shape=(NUM_CYTOKINES_CONTROLLED,),
             dtype=np.float32)
+
+        # offset and scaling factors for observation regularization
         obs_max = all_signals_max
         self.input_offset = (obs_max)/2
         self.input_scale = (obs_max)/2
+
+        # observation space is oxydef and 11 cytokine values
         obs_space_high = np.zeros(12)
         obs_space_high[0] = 101*101
         obs_space_high[1:] = np.inf
         obs_max = obs_space_high
 
-        # for i in range(NUM_OBSERVTAIONS-1):
-        #     obs_space_high = np.hstack((obs_space_high, np.array([10,10,10,10,10,10,10,10,10,10,10])))
+        # stack the observation space with the number of frames to be observed
         for i in range(NUM_OBSERVTAIONS-1):
             obs_space_high = np.vstack((obs_space_high,obs_max))
         obs_space_high = obs_space_high.T.flatten()
-        # print(obs_space_high.shape)
+
         self.observation_space = gym.spaces.Box(
             low=0,
             high=obs_space_high,
             shape=obs_space_high.shape,
             dtype=np.float32)
 
+        # call reset to initialze all the variables so it is ready to simulatie
         self.reset()
+
         if self.rendering == "human":
             print("initializing")
             self.initialize_render()
-        # Define action and observation space
-        # They must be gym.spaces objects
-        # Example when using discrete actions:
-        # self.action_space = spaces.Discrete(N_DISCRETE_ACTIONS)
-        # Example for using image as input:
-        # self.observation_space = spaces.Box(low=0, high=255, shape=
-        #                 (HEIGHT, WIDTH, N_CHANNELS), dtype=np.uint8)
+
     def seed(self, new_seed):
+        # function to properly seed the environment
         SIM.setSeed(self.ptrToEnv, new_seed)
 
+    def get_current_cyto(self):
+        # function to get all the data for the current frame
+        # returns oxydef and 11 cytokine values
+        return SIM.getAllSignalsReturn(self.ptrToEnv)[[0,2,3,4,5,12,13,14,15,16,17,18],self.current_step]
+
     def step(self, action):
-    # Execute one time step within the environment, repeat for number of simulation steps and return average
-        self.RL_step += 1
-        dead = False
-        healed = False
-        timeout = False
-        action = self.take_action(action)
+        # function to execute the chosen action for the number of action_repeats
+        # action - an (11,1) array of actions in range of (-1,1)
+        # returns:
+            # the total of the observations over the course of the action_repeats
+            # the total reward over the course of the action_repeats
+            # the done as a boolean if the patient dies or heals
+        self.RL_step += 1                   # increment the agent step
+        dead = False                        # initialize dead as False for info
+        healed = False                      # intialize healed as False for info
+        timeout = False                     # intialize timeout as False for info
+        self.take_action(action)             # apply the multipliers given
+        # set the current step and add data to the proper history placeholders
         self.current_step = SIM.getSimulationStep(self.ptrToEnv)
-        self.cytokine_history[:,self.current_step] = SIM.getAllSignalsReturn(self.ptrToEnv)[[0,2,3,4,5,12,13,14,15,16,17,18],self.current_step]
+        self.cytokine_history[:,self.current_step] = self.get_current_cyto()
         self.full_history[:,self.current_step] = SIM.getAllSignalsReturn(self.ptrToEnv)[:,self.current_step]
         self.oxydef_history[self.current_step] = SIM.getAllSignalsReturn(self.ptrToEnv)[0,self.current_step]
-        done = self.calculate_done()
-        reward = self.calculate_reward(action)
-        obs = self.next_observation()
-        self.render(action)
+        done = self.calculate_done()            # calculate done - 1=healed, 2=dead, 3=timeout
+        reward = self.calculate_reward(action)  # calculate the reward for this frame
+        obs = self.next_observation()           # get the oxydef and cytokine values for this frame
+        if self.rendering == "console" or self.rendering == "human":
+            self.render(action)
+
+        # repeat these actions for the number of action_repeats-1 because the action was already taken once
         for num_repeats in range(self.action_repeats - 1):
             if done > 0:
                 break
-            action = self.take_action(action)
+            self.take_action(action)
             self.current_step = SIM.getSimulationStep(self.ptrToEnv)
-            self.cytokine_history[:,self.current_step] = SIM.getAllSignalsReturn(self.ptrToEnv)[[0,2,3,4,5,12,13,14,15,16,17,18],self.current_step]
+            self.cytokine_history[:,self.current_step] = self.get_current_cyto()
             self.full_history[:,self.current_step] = SIM.getAllSignalsReturn(self.ptrToEnv)[:,self.current_step]
             self.oxydef_history[self.current_step] = SIM.getAllSignalsReturn(self.ptrToEnv)[0,self.current_step]
 
             done = self.calculate_done()
             reward += self.calculate_reward(action)
             obs = np.add(obs,self.next_observation())
-            self.render(action)
+            if self.rendering == "console" or self.rendering == "human":
+                self.render(action)
+        # change healed/dead/timeout based on done value and cast done to a boolean
         if done == 1:
             healed = True
         if done == 2:
             dead = True
         if done == 3:
             timeout = True
-        # obs /= num_repeats+1
-        # reward /= num_repeats+1
+        done = bool(done)
+        # set info vars
         info = {"dead":dead,
         "healed":healed,
         "timeout":timeout,
         "transient_infection":self.transient_infection,
         "step":self.current_step,
         "oxydef":self.oxydef_history[self.current_step]}
+
         return obs, reward, done, info
 
     def take_action(self,action_vector, testing_transient=False):
-        action_vector = np.squeeze(action_vector)
-        action = np.zeros(action_vector.shape)
-        for i in range(action_vector.shape[0]):
+        # function to apply the chosen action to the simulation and step environment forward one frame
+            # action_vector - a vector of shape (11,) with values in range(-1,1) that represent the chosen actions
+            # testing_transient - a boolean used when the damage has been healed to confirm that no transient infection will return and kill the patient
+        action_vector = np.squeeze(action_vector)       # reduce dimensions of chosen action to be 1D
+        action = np.zeros(action_vector.shape)          # placeholder for the actions that will be taken
+
+        for i in range(action_vector.shape[0]):         # for each multiplier in the chosen action convert the action to a multiplier for the iirabm simulation
             act = action_vector[i]
             if act >= 0:
-                action[i] = (act*9) + 1
+                action[i] = (act*9) +1                 # if the action is > 0, convert to range (1,100)
             else:
-                action[i] = act + 1.001
+                action[i] = act + 1.001                 # if the action is < 0, convert to range (0.001, 1
         action = np.clip(action, .001, 10)
-        # action = tf.keras.backend.switch(action_vector >= 0, (action_vector*9)+1, action_vector + 1.0001)
-        # action = tf.clip_by_value(action, .001, 10)
 
-        if not testing_transient:
+        if not testing_transient:                       # if testing the normal case, add the iirabm multiplier action to the action_history
             self.action_history[:,self.current_step] = action
-        self.cytokine_mults = action
+        self.cytokine_mults = action                    # set cytokine_mults to the current iirabme multiplier action
+        # Apply the iirabm multiplier actions
         SIM.setTNFmult(self.ptrToEnv, action[0])
         SIM.setsTNFrmult(self.ptrToEnv, action[1])
         SIM.setIL10mult(self.ptrToEnv, action[2])
@@ -181,27 +217,27 @@ class Iirabm_Environment(gym.Env):
         SIM.setIL8mult(self.ptrToEnv, action[8])
         SIM.setIL12mult(self.ptrToEnv, action[9])
         SIM.setsIL1rmult(self.ptrToEnv, action[10])
-
+        # step the environment forward with the applied action
         SIM.singleStep(self.ptrToEnv)
 
-        return action_vector
-
     def next_observation(self):
+        # a function to return the last NUM_OBSERVTAIONS frames as a 1D vector
         cytokines = np.array(self.cytokine_history[:,self.current_step-NUM_OBSERVTAIONS:self.current_step])
-
-        # print("cytokines")
-        # print(cytokines)
         observation = cytokines
-        # print(observation.shape)
-        # observation = (observation - self.input_offset)/self.input_scale
-        # observation[0,:] = observation[0,:]/self.observation_space.high[0]
+
+        # attempt to make the observation 0 centered and normalized to (-1,1), then flatten to 1D
         for i in range(observation.shape[1]):
             observation[:,i] = (observation[:,i] - self.input_offset)/self.input_scale
         observation = observation.flatten()
-        # print(observation)
+
         return observation
 
     def calculate_done(self):
+        # a function that will return done as an int
+            # 0 = not done
+            # 1 = Healed
+            # 2 = Dead
+            # 3 = Env Timeout
         DONE = 0
         if self.oxydef_history[self.current_step] < HEAL_OXYDEF:
             DONE = 1
@@ -212,86 +248,104 @@ class Iirabm_Environment(gym.Env):
         return DONE
 
     def test_transient_infection(self):
-        neutral_action = [0,0,0,0,0,0,0,0,0,0,0]
+        # a function to test transient infection after damage threshold goes below heal threshold
+        # returns boolean of if patient fully heals or timesout/dies
+            # True - patient fully healed damage
+            # False - patient died or env timeout
+
+        neutral_action = [0,0,0,0,0,0,0,0,0,0,0]    # Action that will set all multipliers to 1, essentially stopping therapy
+        # 100 frame test period to let the simulation try to finish healing on its own
         for _ in range(100):
             self.take_action(neutral_action, testing_transient=True)
             self.current_step = SIM.getSimulationStep(self.ptrToEnv)
-
+        # test if damage is healed every frame until death, final heal, or env timeout
         while self.current_step < MAX_STEPS:
-            if SIM.getAllSignalsReturn(self.ptrToEnv)[0,self.current_step] < 10:
+            if SIM.getAllSignalsReturn(self.ptrToEnv)[0,self.current_step] < FINAL_HEAL_OXYDEF:
                 self.transient_infection = False
                 return True
-            if SIM.getAllSignalsReturn(self.ptrToEnv)[0,self.current_step] > 8000:
+            if SIM.getAllSignalsReturn(self.ptrToEnv)[0,self.current_step] > MAX_OXYDEF:
                 self.transient_infection = True
                 print("WARNING PATIENT DIED AFTER THERAPY")
                 return False
             self.take_action(neutral_action, testing_transient=True)
             self.current_step = SIM.getSimulationStep(self.ptrToEnv)
         print("WARNING PATIENT TIMEOUT WHILE TESTING TRANSIENT INFECTION")
+        self.transient_infection = True
         return False
 
 
     def calculate_reward(self, action):
-        return_reward = 0
-        reward_mult = 0.998 ** self.RL_step
-        # reward_mult = 1
-        # return_reward += 1 #bonus for staying alive per step
+        # function to calculate reward for current step
+            # action - agent action taken of shape (11,) in range(-1,1)
+        # returns heal/death reward or reward based on change in damage, action size, and agent step
+
+        return_reward = 0                               # initialize reward to 0
+        reward_mult = 0.998 ** self.RL_step             # reward multiplier gets smaller as the agent takes more steps
+
         if self.calculate_done():
-            if self.oxydef_history[self.current_step] < 400:
-                if self.test_transient_infection():
-                    return 1000 #* reward_mult
+            if self.oxydef_history[self.current_step] < HEAL_OXYDEF:
+                if self.test_transient_infection():     # if healed, test transient_infection
+                    return 1000                         # if fully healed, return heal reward
                 else:
-                    return -500
-            if self.oxydef_history[self.current_step] > 8100:
-                return -1000 #* reward_mult
-            # else:
-            #     return 200 -self.oxydef_history[self.current_step]/8100
+                    return -500                         # if timeout or dies after healing, return a negative reward
+            if self.oxydef_history[self.current_step] > MAX_OXYDEF:
+                return -1000                            # if dead return death reward
 
-
+        # if not done, continue calculating reward
+        # phi and potential difference are based on the change in oxydef/system damage
         phi = self.phi_mult * -self.oxydef_history[self.current_step]/(101*101)
 
         if self.phi_prev is not None and self.potential_difference_mult is not None:
             potential_difference = self.potential_difference_mult*(phi - self.phi_prev)
-            # print("potential difference: " + str(potential_difference))
         else:
             potential_difference = 0
         self.phi_prev = phi
         return_reward += potential_difference
 
+        # regularization to discourage large actions
         if self.action_L1 is not None:
-            # print("L1 penalty: " + str(self.action_L1*np.linalg.norm(action, ord=1)))
             return_reward -= self.action_L1*np.linalg.norm(action, ord=1) # L1 penalty
 
-        return float(return_reward * reward_mult)
+        return float(return_reward * reward_mult)   # return reward discounted by return multiplier
 
     def reset(self, OH=.08, IS=4, NRI=2, NIR=2, injNum=27, seed=0, numCytokines=9):
-    # Reset the state of the environment to an initial state
-        # del self.ptrToEnv
-        self.ptrToEnv = createIIRABM(OH, IS, NRI, NIR, injNum, seed, numCytokines)
-        for i in range(NUM_OBSERVTAIONS+100):
+        # function to reset the state of the environment to an initial state
+            # OH - oxyheal
+            # IS - infection spread
+            # NRI - Number of recurrent injuries
+            # NIR - Number of infection num_repeats
+            # injNum - Injury size / number of inital injuries
+            # seed - Random seed for the simulation
+            # numCytokines - Not certain what this variable does, but it was an input for the IIRABM so set it equal to 9
+        # returns the intial observation of the new environment
+        self.ptrToEnv = createIIRABM(OH, IS, NRI, NIR, injNum, seed, numCytokines)  # create a new iirabm environment
+        for i in range(NUM_OBSERVTAIONS+100):                                       # 100 frame burn in period
             SIM.singleStep(self.ptrToEnv)
+        # Set histories for the new simulation
         self.cytokine_history = SIM.getAllSignalsReturn(self.ptrToEnv)[[0,2,3,4,5,12,13,14,15,16,17,18],:]
         self.full_history[:,self.current_step] = SIM.getAllSignalsReturn(self.ptrToEnv)[:,self.current_step]
         self.oxydef_history = SIM.getAllSignalsReturn(self.ptrToEnv)[0,:]
         self.current_step = SIM.getSimulationStep(self.ptrToEnv)
+        # Initialize histories in the future of the current step = 0
         self.cytokine_history[:,self.current_step:] = 0
         self.full_history[:, self.current_step:] = 0
         self.oxydef_history[self.current_step:] = 0
-        self.RL_step = 0
-        self.phi_prev = None # Starts at None so each episode's first reward doesn't include a potential function.
-        self.transient_infection = False
+        self.RL_step = 0                    # Reset RL step
+        self.phi_prev = None                # Starts at None so each episode's first reward doesn't include a potential function.
+        self.transient_infection = False    # reset transient infection
 
         return self.next_observation()
 
-    def render(self, action=None, close=False):
+    def render(self, action=None):
+        # function that will render the environment to the screen based on rendering choice
         mode = self.rendering
         if action is None:
             action = self.action_history[:,self.current_step-1]
         np.set_printoptions(precision=3, suppress=True)
         output = "step: {:4.0f}, Oxygen Deficit: {:6.0f}, Mults:{:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f},{:6.3f}".format(self.current_step, SIM.getOxydef(self.ptrToEnv),*self.cytokine_mults)
+        # Render the environment to the screen
         if mode == 'human' or mode == 'console':
             print(output, end="\r")
-    # Render the environment to the screen
         if mode == 'human':
             self.fig.canvas.restore_region(self.bg)
             self.line.set_data(range(self.current_step), self.oxydef_history[:self.current_step])
@@ -301,6 +355,7 @@ class Iirabm_Environment(gym.Env):
             plt.pause(.00000001)
 
     def initialize_render(self):
+        # function to set up rendering for human mode
         plotx = np.array(range(self.max_steps))
         print(plotx.shape)
         ploty = np.zeros((self.max_steps-1))
