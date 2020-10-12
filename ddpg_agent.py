@@ -1,3 +1,7 @@
+"""
+This file contains all the functions to create and use a DDPG DRL agent.
+"""
+
 import time
 import numpy as np
 import tensorflow as tf
@@ -10,6 +14,8 @@ from replay_buffer import ReplayBuffer
 
 kernel_init = tf.keras.initializers.RandomNormal(stddev=0.001)
 
+
+# vvv unused function vvv
 def output_activation(x):
     # function to scale tanh activation to be 1-10 if x>0 or 0-1 if x < 0
     out = K.switch(x >= 0, tf.math.tanh(x+0.1)*10, tf.math.tanh(x) + 1)
@@ -17,6 +23,10 @@ def output_activation(x):
 
 
 def actor_network(obs_size, action_size):
+    # function to create actor network
+        # obs_size - the input shape for the actor network, the same as the observation shape returned by the environment
+        # action_size - the output shape of the actor, the same as the action space for the iirabm environment
+    # returns the actor model
     num_hidden1 = 400
     num_hidden2 = 300
     num_hidden3 = 200
@@ -24,8 +34,6 @@ def actor_network(obs_size, action_size):
 
     hidden = layers.Dense(num_hidden1, activation="relu", kernel_initializer=kernel_init)(input)
     hidden = layers.Dense(num_hidden2, activation="relu",kernel_initializer=kernel_init)(hidden)
-    # hidden = layers.BatchNormalization()(hidden)
-    # hidden = layers.Dense(num_hidden3, activation="relu")(hidden)
 
     output = layers.Dense(action_size, activation='tanh',kernel_initializer=kernel_init)(hidden)
 
@@ -34,6 +42,10 @@ def actor_network(obs_size, action_size):
 
 
 def critic_network(obs_size, action_size):
+    # function to create actor network
+        # obs_size - the input shape for the observations for the critic network, the same as the observation shape returned by the environment
+        # action_size - the input shape of the actions for the critic network, the same as the action space for the iirabm environment
+    # returns the critic model
     state_hidden = 400
     action_hidden = 400
     output_hidden = 300
@@ -44,10 +56,8 @@ def critic_network(obs_size, action_size):
 
     # Action as input
     action_input = layers.Input(shape=(action_size))
-    # action_out = action_input
-    # action_out = layers.Dense(action_hidden, activation="relu",kernel_initializer=kernel_init)(action_input)
 
-    # Both are passed through seperate layer before concatenating
+    # combines the state and action inputs into one layer
     concat = layers.Concatenate()([state_out, action_input])
 
     out = layers.Dense(output_hidden, activation="relu",kernel_initializer=kernel_init)(concat)
@@ -62,12 +72,22 @@ class Agent():
     """Interacts with and learns from the environment."""
 
     def __init__(self, state_size, action_size, LR_ACTOR=.0001, LR_CRITIC=.001, noise_magnitude=.1, BUFFER_SIZE=1000000, BATCH_SIZE=32, GAMMA=.99, TAU=.001):
+        # state_size - shape of the oberved state
+        # action_size - shape of the actions taken by the actor
+        # LR_ACTOR - learning rate for the actor network
+        # LR_CRITIC - learning rate for the critic network
+        # noise_magnitude - the magnitude for the GaussianNoiseProcess
+        # BUFFER_SIZE - the number of action/observation pairs to be kept in the buffer memory
+        # BATCH_SIZE - the number of random observations pulled for the network to learn on
+        # GAMMA - discount factor for the learning process
+        # TAU - update rate for target networks
         """Initialize an Agent object.
 
         Params
         ======
             state_size (int): dimension of each state
             action_size (int): dimension of each action
+            LR_ACTOR
         """
         self.state_size = state_size
         self.action_size = action_size
@@ -103,6 +123,7 @@ class Agent():
         self.memory = ReplayBuffer(action_size, self.buffer_size, self.batch_size)
 
     def reset_timers(self):
+        # function to reset internal timers for the agent
         self.training_time = 0
         self.updating_time = 0
         self.selecting_time = 0
@@ -115,8 +136,7 @@ class Agent():
             action += self.noise.sample()
         else:
             action = self.actor_target(state)
-        # print(action)
-        # print(state)
+
         return action
 
     def reset(self):

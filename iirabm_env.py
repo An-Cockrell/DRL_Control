@@ -4,7 +4,12 @@
 
 # following this:
 # https://towardsdatascience.com/creating-a-custom-openai-gym-environment-for-stock-trading-be532be3910e
-
+"""
+This file contains all the functions to set up and use the iirabm gym environment. The following functions are the ones that should be used to interact with the environment:
+    seed
+    step
+    reset
+"""
 
 import ctypes
 import numpy as np
@@ -197,10 +202,10 @@ class Iirabm_Environment(gym.Env):
         for i in range(action_vector.shape[0]):         # for each multiplier in the chosen action convert the action to a multiplier for the iirabm simulation
             act = action_vector[i]
             if act >= 0:
-                action[i] = (act*9) +1                 # if the action is > 0, convert to range (1,100)
+                action[i] = (act*99) +1                 # if the action is > 0, convert to range (1,100)
             else:
                 action[i] = act + 1.001                 # if the action is < 0, convert to range (0.001, 1
-        action = np.clip(action, .001, 10)
+        action = np.clip(action, .001, 99.999)
 
         if not testing_transient:                       # if testing the normal case, add the iirabm multiplier action to the action_history
             self.action_history[:,self.current_step] = action
