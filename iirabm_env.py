@@ -28,7 +28,7 @@ globalFig = None
 globalBG = None
 
 
-HEAL_OXYDEF = 400               #Oxydef level where therapy stops
+HEAL_OXYDEF = 50               #Oxydef level where therapy stops
 FINAL_HEAL_OXYDEF = 10          #Oxydef level where subject is considered totally healed
 MAX_OXYDEF = 8160               #Oxydef level where subject is considered dead
 MAX_STEPS = 9999                #Max number of steps the simulation will play
@@ -270,11 +270,11 @@ class Iirabm_Environment(gym.Env):
                 return True
             if SIM.getAllSignalsReturn(self.ptrToEnv)[0,self.current_step] > MAX_OXYDEF:
                 self.transient_infection = True
-                print("WARNING PATIENT DIED AFTER THERAPY")
+                # print("WARNING PATIENT DIED AFTER THERAPY")
                 return False
             self.take_action(neutral_action, testing_transient=True)
             self.current_step = SIM.getSimulationStep(self.ptrToEnv)
-        print("WARNING PATIENT TIMEOUT WHILE TESTING TRANSIENT INFECTION")
+        # print("WARNING PATIENT TIMEOUT WHILE TESTING TRANSIENT INFECTION")
         self.transient_infection = True
         return False
 
@@ -292,7 +292,7 @@ class Iirabm_Environment(gym.Env):
                 if self.test_transient_infection():     # if healed, test transient_infection
                     return 1000                         # if fully healed, return heal reward
                 else:
-                    return -500                         # if timeout or dies after healing, return a negative reward
+                    return -2500                         # if timeout or dies after healing, return a negative reward
             if self.oxydef_history[self.current_step] > MAX_OXYDEF:
                 return -1000                            # if dead return death reward
 
@@ -313,12 +313,12 @@ class Iirabm_Environment(gym.Env):
 
         return float(return_reward * reward_mult)   # return reward discounted by return multiplier
 
-    def reset(self, OH=.08, IS=4, NRI=2, NIR=2, injNum=27, seed=0, numCytokines=9):
+    def reset(self, OH=.08, IS=4, NRI=0, NIR=2, injNum=27, seed=0, numCytokines=9):
         # function to reset the state of the environment to an initial state
             # OH - oxyheal
             # IS - infection spread
             # NRI - Number of recurrent injuries
-            # NIR - Number of infection num_repeats
+            # NIR - Number of infection repeats
             # injNum - Injury size / number of inital injuries
             # seed - Random seed for the simulation
             # numCytokines - Not certain what this variable does, but it was an input for the IIRABM so set it equal to 9

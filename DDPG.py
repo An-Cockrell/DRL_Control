@@ -112,6 +112,18 @@ def solve_problem(agent, episodes, step, pretrained, display_batch_size, save_cy
                     transient_infection_count += 1
                 if info["timeout"] or current_step == step:
                     timeout_count += 1
+
+
+                if np.mean(reward_list[-200:]) >= WIN_THRESHOLD and current_episode > 500:
+                    print('Task Solved')
+                    if not pretrained:
+                        agent.actor_local.save('successful_actor_local.h5')
+                        agent.critic_local.save('successful_critic_local.h5')
+                        agent.actor_target.save('successful_actor_target.h5')
+                        agent.critic_target.save('successful_critic_target.h5')
+                        print('Training saved')
+                    problem_solved = True
+
                 if current_episode % display_batch_size==0:
                     display_divisor = display_batch_size
                     temp_score = 0
@@ -143,15 +155,7 @@ def solve_problem(agent, episodes, step, pretrained, display_batch_size, save_cy
                     print("USING AGENT ACTIONS NOW")
                 if current_episode % EPS_BETWEEN_TEST - NUM_TEST_EPS == 0 and TESTING:
                     TESTING = False
-                if np.mean(reward_list[-200:]) >= WIN_THRESHOLD and current_episode > 500:
-                    print('Task Solved')
-                    if not pretrained:
-                        agent.actor_local.save('successful_actor_local.h5')
-                        agent.critic_local.save('successful_critic_local.h5')
-                        agent.actor_target.save('successful_actor_target.h5')
-                        agent.critic_target.save('successful_critic_target.h5')
-                        print('Training saved')
-                    problem_solved = True
+
                 if current_episode%EPS_BETWEEN_TEST == 0 and current_episode > 1:
                     TESTING = True
                 if current_episode % EPS_BETWEEN_EXP_UPDATE == 0 and current_episode > 0:
@@ -169,8 +173,9 @@ def solve_problem(agent, episodes, step, pretrained, display_batch_size, save_cy
 
     print("Done Training")
     print("Total Time Taken: {:4.2f} minutes".format((time.time()-total_time)/60))
-    np.save("cytokine_data.npy", cyto_data[:,:,:current_episode])
-    np.save("action_data.npy", action_data[:,:,:current_episode])
+    if save_cyto_data:
+        np.save("cytokine_data.npy", cyto_data[:,:,:current_episode])
+        np.save("action_data.npy", action_data[:,:,:current_episode])
     return reward_list
 
 # TRAINING TIME
