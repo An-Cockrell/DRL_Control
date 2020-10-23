@@ -37,8 +37,9 @@ extern "C" {
         // SimulationObject *returnSim = new SimulationObject();
         SimulationObject * ref = reinterpret_cast<SimulationObject *>(ptr);
         SimulationObject& tempRef = *ref;
-        SimulationObject* returnSim = new SimulationObject(tempRef);
-        return returnSim;
+        sim_obj = SimulationObject(tempRef);
+        simulationObjectAddress = &sim_obj;
+        return simulationObjectAddress;
     }
     void singleStep(void* ptr){
         SimulationObject * ref = reinterpret_cast<SimulationObject *>(ptr);
@@ -857,7 +858,7 @@ void SimulationObject::cellStep(){
         shuffle(pmnArray.begin(),pmnArray.end(),generator);}
     j=0;
     while(j<length){
-        pmnArray[j].pmn_function(j, TNFmult, IL1ramult, IL1mult, cellGrid, ecArray, pmnArray);
+        pmnArray[j].pmn_function(j, IL1ramult, TNFmult, IL1mult, cellGrid, ecArray, pmnArray);
         j++;
         length=pmnArray.size();}
     length=monoArray.size();

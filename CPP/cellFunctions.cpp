@@ -221,10 +221,10 @@ void pmn::pmn_burst(int pmnID, float TNFmult, float IL1mult, int (&cellGrid)[101
 	y=yLoc;
 	id=y*xDim+x;
 	ecArray[id].cytotox=max(float(10),ecArray[id].TNF);
-	ecArray[id].oxy=100;
-	ecArray[id].ec_roll=0;
-	ecArray[id].ec_stick=0;
-	ecArray[id].ec_migrate=0;
+	// ecArray[id].oxy=100;
+	// ecArray[id].ec_roll=0;
+	// ecArray[id].ec_stick=0;
+	// ecArray[id].ec_migrate=0;
 	if(TNFmult<=1){
 		ecArray[id].TNF=(ecArray[id].TNF+1)*TNFmult;
 	} else{
