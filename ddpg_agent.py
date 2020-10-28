@@ -12,7 +12,7 @@ from tensorflow.keras import backend as K
 from noise_processes import *
 from replay_buffer import ReplayBuffer
 
-kernel_init = tf.keras.initializers.RandomNormal(stddev=0.001)
+kernel_init = tf.keras.initializers.RandomNormal(stddev=0.1)
 
 
 # vvv unused function vvv
@@ -21,6 +21,8 @@ def output_activation(x):
     out = K.switch(x >= 0, tf.math.tanh(x+0.1)*10, tf.math.tanh(x) + 1)
     return tf.clip_by_value(out, .001, 10)
 
+def shallow_tanh(x):
+    return tf.math.tanh(x/10)
 
 def actor_network(obs_size, action_size):
     # function to create actor network
@@ -35,7 +37,7 @@ def actor_network(obs_size, action_size):
     hidden = layers.Dense(num_hidden1, activation="relu", kernel_initializer=kernel_init)(input)
     hidden = layers.Dense(num_hidden2, activation="relu",kernel_initializer=kernel_init)(hidden)
 
-    output = layers.Dense(action_size, activation='tanh',kernel_initializer=kernel_init)(hidden)
+    output = layers.Dense(action_size, activation=shallow_tanh,kernel_initializer=kernel_init)(hidden)
 
     model = tf.keras.Model(input, output)
     return model
@@ -201,7 +203,7 @@ class Agent():
             # Compute critic loss
             Q_expected = self.critic_local([states, actions])
             critic_loss = tf.reduce_mean((Q_expected-Q_targets)**2)
-        # print("{:1.4f}".format(critic_loss), end="\r")
+            # tf.print((actor_loss, critic_loss), end="          \r")
         # Minimize the loss
             critic_grad = tape.gradient(critic_loss, self.critic_local.trainable_variables)
         self.critic_optimizer.apply_gradients(zip(critic_grad, self.critic_local.trainable_variables))
