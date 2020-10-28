@@ -42,7 +42,8 @@ NUM_CYTOKINES_CONTROLLED = 11   #Number of cytokines controlled by the agent
 NUM_OBSERVTAIONS = 1            #Total number of timesteps observed by the agent
 
 # Estimated maximum values for Oxydef, and 11 cytokines
-all_signals_max = np.array([4230, 60, 15, 150, 120, 15, 200, 60, 70, 100, 20, 10])
+all_signals_max = np.array([7851, 2350, 83, 1338, 8684, 210, 4123, 721, 1230, 1802,139, 103])
+# all_signals_max = np.array([4230, 60, 15, 150, 120, 15, 200, 60, 70, 100, 20, 10])
 
 SIM = wrapper_setup.setUpWrapper()
 
@@ -85,6 +86,8 @@ class Iirabm_Environment(gym.Env):
         super(Iirabm_Environment, self).__init__()
 
         self.oxydef_regressor = tf.keras.models.load_model("oxydef_regressor.h5")
+        self.oxydef_regressor_hist = np.zeros((1,10000))
+        self.obs_hist = np.zeros((11,10000))
         self.neutral_action = [0,0,0,0,0,0,0,0,0,0,0]    # Action that will set all multipliers to 1, essentially stopping therapy
         self.steps_until_regression = regression_cooldown
         self.reward_range = (-250,250)                              # Range of rewads at each step
@@ -130,7 +133,7 @@ class Iirabm_Environment(gym.Env):
             dtype=np.float32)
 
         # call reset to initialze all the variables so it is ready to simulatie
-        self.reset()
+        self.reset(display=False)
 
         if self.rendering == "human":
             print("initializing")
@@ -159,6 +162,8 @@ class Iirabm_Environment(gym.Env):
         self.take_action(action)             # apply the multipliers given
         # set the current step and add data to the proper history placeholders
         self.current_step = SIM.getSimulationStep(self.ptrToEnv)
+        starting_step = self.current_step
+
         self.cytokine_history[:,self.current_step] = self.get_current_cyto()
         self.full_history[:,self.current_step] = SIM.getAllSignalsReturn(self.ptrToEnv)[:,self.current_step]
         self.oxydef_history[self.current_step] = SIM.getAllSignalsReturn(self.ptrToEnv)[0,self.current_step]
@@ -177,9 +182,9 @@ class Iirabm_Environment(gym.Env):
             self.full_history[:,self.current_step] = SIM.getAllSignalsReturn(self.ptrToEnv)[:,self.current_step]
             self.oxydef_history[self.current_step] = SIM.getAllSignalsReturn(self.ptrToEnv)[0,self.current_step]
 
-            done = self.calculate_done()
             reward += self.calculate_reward(action)
             obs = np.add(obs,self.next_observation())
+            done = self.calculate_done()
 
 
         for regression_cooldown in range(self.steps_until_regression):
@@ -191,12 +196,42 @@ class Iirabm_Environment(gym.Env):
             self.full_history[:,self.current_step] = SIM.getAllSignalsReturn(self.ptrToEnv)[:,self.current_step]
             self.oxydef_history[self.current_step] = SIM.getAllSignalsReturn(self.ptrToEnv)[0,self.current_step]
 
-            done = self.calculate_done()
             reward += self.calculate_reward(self.neutral_action)
             obs = np.add(obs,self.next_observation())
+            done = self.calculate_done()
+
+
+        step_count = self.current_step - starting_step
+        if step_count == 0:
+            step_count = 1
+        reward /= step_count
+        obs /= step_count
+
+        self.obs_hist[:,self.RL_step] = np.squeeze(obs)
+        if NUM_OBSERVTAIONS > 1:
+            if self.RL_step >= NUM_OBSERVTAIONS:
+                prev_obs = self.obs_hist[:,self.RL_step-(NUM_OBSERVTAIONS-1):self.RL_step]
+                prev_obs = np.flip(prev_obs, axis=1)
+                obs = np.hstack((obs,prev_obs))
+            else:
+                obs = np.hstack((obs,np.zeros((obs.shape[0],NUM_OBSERVTAIONS-1))))
 
         oxydef = self.oxydef_regressor.predict(np.expand_dims(self.get_current_cyto()[1:], axis=0))
-        obs = np.hstack((np.squeeze(oxydef), obs))
+        self.oxydef_regressor_hist[0,self.RL_step] = oxydef
+
+        if NUM_OBSERVTAIONS > 1:
+            if self.RL_step >= NUM_OBSERVTAIONS:
+                prev_steps = self.oxydef_regressor_hist[0,self.RL_step-(NUM_OBSERVTAIONS-1):self.RL_step]
+                prev_steps = np.flip(prev_steps, axis=0)
+                oxydef = np.hstack((oxydef[0],prev_steps))
+            else:
+                oxydef = np.hstack((oxydef[0],np.squeeze(np.zeros(NUM_OBSERVTAIONS-1))))
+
+        obs = np.vstack((oxydef, obs))
+        # attempt to make the observation 0 centered and normalized to (-1,1), then flatten to 1D
+        for i in range(obs.shape[1]):
+            obs[:,i] = (obs[:,i] - self.input_offset)/self.input_scale
+        obs = obs.T.flatten()
         # change healed/dead/timeout based on done value and cast done to a boolean
         if done == 1:
             healed = True
@@ -225,10 +260,10 @@ class Iirabm_Environment(gym.Env):
         for i in range(action_vector.shape[0]):         # for each multiplier in the chosen action convert the action to a multiplier for the iirabm simulation
             act = action_vector[i]
             if act >= 0:
-                action[i] = (act*99) +1                 # if the action is > 0, convert to range (1,100)
+                action[i] = (act*9) +1                 # if the action is > 0, convert to range (1,100)
             else:
                 action[i] = act + 1.001                 # if the action is < 0, convert to range (0.001, 1
-        action = np.clip(action, .001, 99.999)
+        action = np.clip(action, .001, 10)
 
         if not testing_transient:                       # if testing the normal case, add the iirabm multiplier action to the action_history
             self.action_history[:,self.current_step] = action
@@ -253,13 +288,13 @@ class Iirabm_Environment(gym.Env):
 
     def next_observation(self):
         # a function to return the last NUM_OBSERVTAIONS frames as a 1D vector
-        cytokines = np.array(self.cytokine_history[1:,self.current_step-NUM_OBSERVTAIONS:self.current_step])
+        cytokines = np.array(self.cytokine_history[1:,self.current_step-1:self.current_step])
         observation = cytokines
 
         # attempt to make the observation 0 centered and normalized to (-1,1), then flatten to 1D
-        for i in range(observation.shape[1]):
-            observation[:,i] = (observation[:,i] - self.input_offset[1:])/self.input_scale[1:]
-        observation = observation.flatten()
+        # for i in range(observation.shape[1]):
+        #     observation[:,i] = (observation[:,i] - self.input_offset[1:])/self.input_scale[1:]
+        # observation = observation.flatten()
 
         return observation
 
@@ -286,8 +321,14 @@ class Iirabm_Environment(gym.Env):
 
         # 100 frame test period to let the simulation try to finish healing on its own
         for _ in range(100):
+            if self.calculate_done() == 3:
+                break
             self.take_action(self.neutral_action, testing_transient=True)
             self.current_step = SIM.getSimulationStep(self.ptrToEnv)
+            self.cytokine_history[:,self.current_step] = self.get_current_cyto()
+            self.full_history[:,self.current_step] = SIM.getAllSignalsReturn(self.ptrToEnv)[:,self.current_step]
+            self.oxydef_history[self.current_step] = SIM.getAllSignalsReturn(self.ptrToEnv)[0,self.current_step]
+
         # test if damage is healed every frame until death, final heal, or env timeout
         while self.current_step < MAX_STEPS:
             if SIM.getAllSignalsReturn(self.ptrToEnv)[0,self.current_step] < FINAL_HEAL_OXYDEF:
@@ -299,6 +340,9 @@ class Iirabm_Environment(gym.Env):
                 return False
             self.take_action(self.neutral_action, testing_transient=True)
             self.current_step = SIM.getSimulationStep(self.ptrToEnv)
+            self.cytokine_history[:,self.current_step] = self.get_current_cyto()
+            self.full_history[:,self.current_step] = SIM.getAllSignalsReturn(self.ptrToEnv)[:,self.current_step]
+            self.oxydef_history[self.current_step] = SIM.getAllSignalsReturn(self.ptrToEnv)[0,self.current_step]
         # print("WARNING PATIENT TIMEOUT WHILE TESTING TRANSIENT INFECTION")
         self.transient_infection = True
         return False
@@ -317,9 +361,9 @@ class Iirabm_Environment(gym.Env):
                 if self.test_transient_infection():     # if healed, test transient_infection
                     return 1000                         # if fully healed, return heal reward
                 else:
-                    return -2500                         # if timeout or dies after healing, return a negative reward
+                    return HEAL_OXYDEF - self.oxydef_history[self.current_step] # if timeout or dies after healing, return a negative reward
             if self.oxydef_history[self.current_step] > MAX_OXYDEF:
-                return -1000                            # if dead return death reward
+                return 1000                            # if dead return death reward
 
         # if not done, continue calculating reward
         # phi and potential difference are based on the change in oxydef/system damage
@@ -334,11 +378,25 @@ class Iirabm_Environment(gym.Env):
 
         # regularization to discourage large actions
         if self.action_L1 is not None:
-            return_reward -= self.action_L1*np.linalg.norm(action, ord=1) # L1 penalty
-
+            action_penalty = self.action_L1*np.sum(tf.math.abs(action)) # L1 penalty
+            return_reward -= action_penalty
+            # np.set_printoptions(precision=3)
+            # print_act = (np.round(np.array(action),3)).tolist()
+            # temp = list([return_reward])
+            # temp.extend(print_act)
+            # print("{:7.2f}, {:7.2f}, {:7.2f}, {:7.2f}, {:7.2f}, {:7.2f}, {:7.2f}, {:7.2f}, {:7.2f}, {:7.2f}, {:7.2f}, {:7.2f}".format(*temp), end="\r")
+        # print("Oxydef difference: " + str(potential_difference))
+        # print("Action penalty: " + str(action_penalty))
         return float(return_reward * reward_mult)   # return reward discounted by return multiplier
-
-    def reset(self, OH=.08, IS=4, NRI=0, NIR=2, injNum=27, seed=0, numCytokines=9):
+# OH: 0.1, IS: 4, NRI: 0, NIR: 2, injNum: 14 <--- ~80% with pmn oxy turned off
+# OH: 0.08, IS: 4, NRI: 0, NIR: 2, injNum: 13
+# OH: 0.15, IS: 4, NRI: 0, NIR: 2, injNum: 19
+# OH: 0.15, IS: 2, NRI: 0, NIR: 2, injNum: 25
+# Mortality Percent: 77.000%
+# OH: 0.08, IS: 3, NRI: 0, NIR: 1, injNum: 18
+    def reset(self, OH=0.1, IS=8, NRI=0, NIR=1, injNum=15, seed=0, numCytokines=9, display=False):
+        if display:
+            print("\n\nOH: {}, IS: {}, NRI: {}, NIR: {}, injNum: {}\n\n".format(OH, IS, NRI, NIR, injNum))
         # function to reset the state of the environment to an initial state
             # OH - oxyheal
             # IS - infection spread
@@ -365,8 +423,22 @@ class Iirabm_Environment(gym.Env):
         self.transient_infection = False    # reset transient infection
 
         obs = self.next_observation()
+        if NUM_OBSERVTAIONS > 1:
+            obs = np.hstack((obs,np.zeros((obs.shape[0],NUM_OBSERVTAIONS-1))))
         oxydef = self.oxydef_regressor.predict(np.expand_dims(self.get_current_cyto()[1:], axis=0))
-        return np.hstack((np.squeeze(oxydef), obs))
+        self.oxydef_regressor_hist[0,self.RL_step] = oxydef
+        if NUM_OBSERVTAIONS > 1:
+            oxydef = np.hstack((oxydef[0],np.squeeze(np.zeros(NUM_OBSERVTAIONS-1))))
+
+        obs = np.vstack((oxydef, obs))
+        # oxydef = np.vstack((oxydef,np.zeros(NUM_OBSERVTAIONS-1)))
+        # obs = np.hstack((np.squeeze(oxydef),obs))
+        # # attempt to make the observation 0 centered and normalized to (-1,1), then flatten to 1D
+        for i in range(obs.shape[1]):
+            obs[:,i] = (obs[:,i] - self.input_offset)/self.input_scale
+        obs = obs.flatten()
+        # print(obs)
+        return obs
 
     def render(self, action=None):
         # function that will render the environment to the screen based on rendering choice
