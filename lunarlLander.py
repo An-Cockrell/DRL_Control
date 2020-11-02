@@ -50,7 +50,7 @@ def ddpg(agent, episodes, step, pretrained, display_batch_size):
         score = 0
         for _ in range(step):
             simulation_start = time.time()
-            # env.render()
+            env.render()
             state = tf.expand_dims(tf.convert_to_tensor(state), 0)
             if random_explore:
                 action = env.action_space.sample()
