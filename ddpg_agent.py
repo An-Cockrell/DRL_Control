@@ -4,7 +4,10 @@ This file contains all the functions to create and use a DDPG DRL agent.
 
 import time
 import numpy as np
+import os
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'  # or any {'0', '1', '2'}
 import tensorflow as tf
+
 from tensorflow.keras import layers
 from tensorflow.python.framework import ops
 from tensorflow.keras import backend as K
