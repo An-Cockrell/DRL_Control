@@ -14,8 +14,10 @@ from collections import namedtuple, deque
 import time
 import gc
 import math
-
+import os
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'  # or any {'0', '1', '2'}
 import tensorflow as tf
+
 from tensorflow.keras import layers
 from tensorflow.python.framework import ops
 from tensorflow.keras import backend as K
@@ -23,6 +25,7 @@ import matplotlib.pyplot as plt
 
 from iirabm_env_V2 import Iirabm_Environment
 from ddpg_agent import Agent
+from ddpg_agent import shallow_tanh
 
 def solve_problem(agent, episodes, step, pretrained, display_batch_size, save_cyto_data=False, NO_ACTION=False, changing_parameters=False):
     # agent - an agent object to train and solve the environment
@@ -37,7 +40,8 @@ def solve_problem(agent, episodes, step, pretrained, display_batch_size, save_cy
         cyto_data = np.zeros((20, 10000, episodes))
         action_data = np.zeros((11,10000,episodes))
     total_time = time.time()                        # starting total time timer
-    reward_list = []                                # list of reward total at end of each episode
+    reward_list = []
+    heal_list = []                      # list of reward total at end of each episode
     random_explore = True                           # bool for whether to use random actions or not
     TESTING = False                                 # bool for whether to test or not
     noise = True                                    # bool to add training noise or not
@@ -59,14 +63,14 @@ def solve_problem(agent, episodes, step, pretrained, display_batch_size, save_cy
     print("\n\n\nTHIS VERSION LEARNS WHILE PLAYING\n\n\n")
 
     if pretrained:
-        agent.actor_local = tf.keras.models.load_model('successful_actor_local.h5')
+        agent.actor_local = tf.keras.models.load_model('successful_actor_local.h5',custom_objects={'shallow_tanh': shallow_tanh})
         agent.critic_local = tf.keras.models.load_model('successful_critic_local.h5')
-        agent.actor_target = tf.keras.models.load_model('successful_actor_target.h5')
+        agent.actor_target = tf.keras.models.load_model('successful_actor_target.h5',custom_objects={'shallow_tanh': shallow_tanh})
         agent.critic_target = tf.keras.models.load_model('successful_critic_target.h5')
-
+        print("USING AGENT ACTIONS NOW")
     if changing_parameters:
         try:
-            params = np.loadtxt("./edge_parameters.txt", skiprows=1, usecols=(0,1,2,3,4))
+            params = np.loadtxt("./edge_parameters_deadly.txt", skiprows=1, usecols=(0,1,2,3,4))
         except:
             print("WARNING: IIRABM Parameters not loaded, using single parameter")
     for current_episode in range(1, episodes+1):
@@ -75,26 +79,29 @@ def solve_problem(agent, episodes, step, pretrained, display_batch_size, save_cy
                 param = random.choice(params)
                 OH, IS, NRI, NIR, injNum = param
                 IS, NRI, NIR, injNum = int(IS), int(NRI), int(NIR), int(injNum)
-                print("OH: {}, IS: {}, NRI: {}, NIR: {}, injNum: {}".format(OH, IS, NRI, NIR, injNum))
                 choose_new_parameters = False
+                print("\nOH: {}, IS: {}, NRI: {}, NIR: {}, injNum: {}\n".format(OH, IS, NRI, NIR, injNum))
 
-            except:
+            except Exception as e:
+                print(str(e))
                 # OH: 0.08, IS: 3, NRI: 0, NIR: 1, injNum: 18
                 # OH: 0.12, IS: 2, NRI: 0, NIR: 3, injNum: 17
                 # OH: 0.12, IS: 5, NRI: 0, NIR: 1, injNum: 22
+                print("Failed to pick random params, using default")
                 OH=0.12
                 IS=2
                 NRI=0
                 NIR=3
                 injNum=17
                 choose_new_parameters = False
+                print("\nOH: {}, IS: {}, NRI: {}, NIR: {}, injNum: {}\n".format(OH, IS, NRI, NIR, injNum))
 
         if pretrained and not changing_parameters:
             TESTING = True
         if pretrained or NO_ACTION:
             random_explore = False
         # print(current_episode, end="\r")
-        state = env.reset(OH=OH, IS=IS, NRI=NRI, NIR=NIR, injNum=injNum, seed = current_episode, display=(current_episode==1))
+        state = env.reset(OH=OH, IS=IS, NRI=NRI, NIR=NIR, injNum=injNum, seed = current_episode)
         current_step = 1                            # current agent step count
         score = 0                                   # initalize score for current episode
         for _ in range(step):
@@ -143,16 +150,19 @@ def solve_problem(agent, episodes, step, pretrained, display_batch_size, save_cy
                 oxydef_total += info["oxydef"]
                 if info["timeout"] or env.current_step >= ENV_STEPS:
                     timeout_count += 1
+                    heal_list.append(0)
                 elif info["dead"]:
                     death_count += 1
+                    heal_list.append(0)
                 elif info["healed"]:
                     heal_count += 1
+                    heal_list.append(1)
                 if info["transient_infection"]:
                     transient_infection_count += 1
 
 
 
-                if np.mean(reward_list[-200:]) >= WIN_THRESHOLD and current_episode > 500:
+                if np.sum(heal_list[-200:]) >= 190 and current_episode > 200: #95% healing and episode greater than 200
                     print('Task Solved')
                     if not pretrained:
                         agent.actor_local.save('successful_actor_local.h5')
@@ -167,9 +177,10 @@ def solve_problem(agent, episodes, step, pretrained, display_batch_size, save_cy
                     temp_score = 0
                     temp_step = 0
                     new_param_force_change +=1
-                    if 100*(heal_count/display_divisor) > 50 or new_param_force_change > 5:
+                    if 100*(heal_count/display_divisor) >= 95 or new_param_force_change > 5:
                         new_param_force_change = 0
                         choose_new_parameters = True
+
                     if TESTING:
                         print("TESTING -- TESTING -- TESTING -- TESTING")
                         score = running_score
@@ -237,7 +248,7 @@ WIN_THRESHOLD = -10            # Reward threshold for win the environment
 EPS_BETWEEN_TEST = 100          # Total episodes between the start of testing groups (test eps + non test eps)
 NUM_TEST_EPS = 20               # Number of episodes in each test group and also size for display batch
 ENV_STEPS = 9999                # Total number of environment frames allowed
-action_L1= 1
+action_L1= None
 potential_difference_mult=200
 phi_mult = 100
 
@@ -274,4 +285,4 @@ action_dim = env.action_space.shape[0]
 ddpg_agent = Agent(state_size=state_dim, action_size=action_dim, LR_ACTOR=LR_ACTOR, LR_CRITIC=LR_CRITIC, noise_magnitude=STARTING_NOISE_MAG, BUFFER_SIZE=BUFFER_SIZE, BATCH_SIZE=BATCH_SIZE, GAMMA=GAMMA, TAU=TAU)
 
 # start attempting to solve the environment
-scores = solve_problem(ddpg_agent, episodes=10000, step=AGENT_MAX_STEPS, pretrained=False, display_batch_size=NUM_TEST_EPS, NO_ACTION=False, save_cyto_data=True, changing_parameters=False)
+scores = solve_problem(ddpg_agent, episodes=10000, step=AGENT_MAX_STEPS, pretrained=False, display_batch_size=NUM_TEST_EPS, NO_ACTION=False, save_cyto_data=False, changing_parameters=False)
