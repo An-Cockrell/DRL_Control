@@ -5,6 +5,8 @@
 # following this:
 # https://towardsdatascience.com/creating-a-custom-openai-gym-environment-for-stock-trading-be532be3910e
 """
+This version of the IIRABM DRL environment will act for 12 hours, then regress a predicted oxygen deficit instead of using the true oxydef.
+
 This file contains all the functions to set up and use the iirabm gym environment. The following functions are the ones that should be used to interact with the environment:
     seed
     step
@@ -21,6 +23,8 @@ import math
 
 import matplotlib.pyplot as plt
 from scipy import stats
+import os
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'  # or any {'0', '1', '2'}
 import tensorflow as tf
 
 # PLOTTING VARS PLACEHOLDERS
