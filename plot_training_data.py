@@ -2,7 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 SAVE_FIGS = False
-cyto_names = ["TNF", "TNFr", "IL10", "GCSF", "IFNg", "PAF", "IL1", "IL4", "IL8", "IL12", "sIL1r"]
+cyto_names = ["TNF", "sTNFr", "IL10", "GCSF", "IFNg", "PAF", "IL1", "IL4", "IL8", "IL12", "sIL1r"]
 
 heal_color = "green"
 timeout_color = "magenta"
@@ -17,10 +17,10 @@ pmn_data = full_data[8,:,:500]
 mono_data = full_data[9,:,:500]
 th1_data = full_data[10,:,:500]
 th2_data = full_data[11,:,:500]
-print(np.nanmax(infection_data))
+print("Max infection level: " + str(np.nanmax(infection_data)))
 action_data = np.load("./action_data.npy")
 action_data = action_data[:,:,:500]
-print(cytokine_data.shape)
+print("Cytokine data shape: " + str(cytokine_data.shape))
 
 for i in range(action_data.shape[2]):
     for j in range(action_data.shape[1]):
@@ -31,9 +31,9 @@ heal_index = np.zeros(cytokine_data.shape[2])
 for i in range(len(heal_index)):
     if np.any(cytokine_data[0,100:,i] < 100):
         heal_index[i] = 1
-    if np.any(cytokine_data[0,100:,i] > 8100):
+    if np.any(cytokine_data[0,100:,i] > 8160):
         heal_index[i] = 2
-        print(i)
+
 summed_cytokine_data = np.sum(cytokine_data[1:,:,:], axis=0)
 summed_action_data = np.sum(action_data, axis=0)
 
@@ -88,7 +88,7 @@ def plot_cytokine_action():
         plt.title("Cytokine Total vs Action Magnitude for " + name)
         plt.xlabel("Cytokine Total")
         plt.ylabel("Action Magnitude")
-        plt.ylim([0.0005,20])
+        plt.ylim([0.0005,120])
         plt.yscale("log")
         plt.legend(loc=4)
         if SAVE_FIGS:
@@ -161,7 +161,7 @@ def plot_cytokine_action_time():
         plt.title("Action Magnitude of "+ name +" over Time")
         # plt.xlabel("Step (6 min)")
         plt.ylabel("Action Magnitude")
-        plt.ylim([0.0005,20])
+        plt.ylim([0.0005,120])
         plt.yscale("log")
         plt.legend(loc=4)
 
@@ -216,40 +216,38 @@ def plot_actions_infection_cytos(plot_live=True, plot_timeout=True, plot_dead=Tr
     index = 0
 
     for name in cyto_names:
-        fig = plt.figure(figsize=(10,9))
+        fig = plt.figure(figsize=(10,8))
         ax1 = fig.add_subplot(3,1,1)
         ax2 = fig.add_subplot(3,1,2)
         ax3 = fig.add_subplot(3,1,3)
-        plt.subplot(311)
         if plot_timeout:
             try:
-                plt.scatter(timeout_steps[:,100:], timeout_action[index,100:,:].T, c=timeout_color, label="Timeout", s=.7)
+                ax1.scatter(timeout_steps[:,100:], timeout_action[index,100:,:].T, c=timeout_color, label="Timeout", s=.7)
             except:
                 pass
         if plot_dead:
             try:
-                plt.scatter(dead_steps.T, dead_action[index,:,:], c=death_color, label="Dead", s=.7)
+                ax1.scatter(dead_steps.T, dead_action[index,:,:], c=death_color, label="Dead", s=.7)
             except:
                 pass
         if plot_live:
             try:
-                plt.scatter(healed_steps[:,100:], healed_action[index,100:,:].T, c=heal_color, label="Heal", s=.7)
+                ax1.scatter(healed_steps[:,100:], healed_action[index,100:,:].T, c=heal_color, label="Heal", s=.7)
             except:
                 pass
 
-        plt.title("Action Magnitude of "+ name +" over Time")
-        # plt.xlabel("Step (6 min)")
-        plt.ylabel("Action Magnitude")
-        plt.ylim([0.0005,20])
-        plt.yscale("log")
-        plt.legend(loc=4)
+        ax1.set_title("Action Magnitude of "+ name +" over Time")
+        # ax1.xlabel("Step (6 min)")
+        ax1.set_ylabel("Action Magnitude")
+        ax1.set_ylim([0.0005,120])
+        ax1.set_yscale("log")
+        ax1.legend(loc=4)
         index += 1
 
-        plt.subplot(313)
+        plt.subplot(313, sharex=ax1)
         plot_cytokines(plot_live, plot_timeout, plot_dead, plot_inf)
-        plt.subplot(312)
+        plt.subplot(312, sharex=ax1)
         plt.yscale("linear")
-        plt.ylim([0,2500])
         if plot_live:
             try:
                 plt.plot(healed_inf,c=infection_color)
@@ -321,11 +319,11 @@ def plot_action_cell_count(plot_live=True, plot_timeout=True, plot_dead=True):
             plt.title("Action Magnitude of "+ name +" over Time")
             # plt.xlabel("Step (6 min)")
             plt.ylabel("Action Magnitude")
-            plt.ylim([0.0005,20])
+            plt.ylim([0.0005,120])
             plt.yscale("log")
             plt.legend(loc=4)
             index += 1
-            ax2 = plt.subplot(512)
+            ax2 = plt.subplot(512, sharex=ax1)
             ax2.tick_params(axis='x', bottom=False, labelbottom=False)
             plt.title("PMN array total")
             ax3 = plt.subplot(513)
@@ -389,11 +387,18 @@ def plot_oxydef():
     if SAVE_FIGS:
         plt.savefig("./Plots/Oxy_Def")
 # plot_cytokine_action()
+# plt.close('all')
 # plot_cytokine_action_time()
+# plt.close('all')
 # plot_compare_cytokine()
-# plot_actions_infection_cytos(plot_timeout=True)
+# plt.close('all')
+plot_actions_infection_cytos(plot_timeout=True)
+# plt.close('all')
 # plot_infection_cyokine()
-# plot_action_cell_count(plot_live=True)
+# plt.close('all')
+plot_action_cell_count(plot_live=True)
+# plt.close('all')
 # plot_cytokines()
+# plt.close('all')
 plot_oxydef()
 plt.show()
